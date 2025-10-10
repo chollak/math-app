@@ -41,6 +41,32 @@
             border-radius: 3px;
             font-family: 'Courier New', monospace;
         }
+        .tools-section {
+            background: #f0f9ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .tool-link {
+            display: block;
+            background: #fefefe;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #10b981;
+            text-decoration: none;
+            color: #374151;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .tool-link:hover {
+            background: #f0fdf4;
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tool-link strong {
+            color: #059669;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -80,6 +106,30 @@
                 <strong>GET /health</strong><br>
                 Проверка состояния сервера
             </div>
+        </div>
+        
+        <div class="tools-section">
+            <h3>🛠️ Инструменты:</h3>
+            
+            <a href="/contexts.html" class="tool-link">
+                <strong>Добавить контекст</strong><br>
+                Создание нового контекста с изображениями для математических задач
+            </a>
+            
+            <a href="/getContexts.html" class="tool-link">
+                <strong>Просмотр контекстов</strong><br>
+                Просмотр всех созданных контекстов и управление ими
+            </a>
+            
+            <a href="/mathCheck.html" class="tool-link">
+                <strong>LaTeX проверщик</strong><br>
+                Проверка и автоматическое исправление LaTeX формул через ChatGPT
+            </a>
+            
+            <a href="/mathRec.html" class="tool-link">
+                <strong>Math OCR Bot</strong><br>
+                Распознавание математических задач с изображений и перевод на казахский
+            </a>
         </div>
         
         <p><strong>Server Status:</strong> <span id="status">Проверка...</span></p>
