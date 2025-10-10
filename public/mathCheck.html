@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <title>LaTeX Checker — упрощённый</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Arial; max-width:980px; margin:18px auto; padding:12px; color:#0b1220; }
+    h1 { font-size:20px; margin-bottom:6px; }
+    textarea { width:100%; min-height:110px; padding:10px; font-size:15px; border-radius:8px; border:1px solid #d1d5db; box-sizing:border-box; }
+    button { padding:8px 12px; border-radius:8px; border:1px solid #94a3b8; background:#eef2ff; cursor:pointer; }
+    .row { display:flex; gap:8px; margin-top:8px; align-items:center; flex-wrap:wrap; }
+    .muted { color:#64748b; font-size:13px; }
+    pre { background:#0f1724; color:#e6eef8; padding:12px; border-radius:8px; overflow:auto; white-space:pre-wrap; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
+    label { font-weight:600; display:block; margin-bottom:6px; }
+    .status { margin-top:8px; font-size:14px; }
+    #rendered { background:#fff; padding:14px; border-radius:8px; border:1px dashed #cbd5e1; min-height:40px; }
+    .small { font-size:13px; color:#475569; }
+    @media (max-width:720px){ .grid{ grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>LaTeX Checker</h1>
+  <div class="muted">Вставь LaTeX / псевдо-LaTeX. Кнопка «Проверить / Исправить» отправит запрос в OpenAI, кнопка «Отрисовать только локально» просто нарисует введённый LaTeX.</div>
+
+  <div style="margin-top:12px;">
+    <label for="input">Ввод (LaTeX или строка):</label>
+    <textarea id="input" placeholder="Пример: ((-1)^{k+1} frac{pi}{6} + pk, k in mathbb{Z})">((-1)^{k} frac{pi}{6} + pk, k in mathbb{Z})</textarea>
+
+    <div class="row">
+      <button id="check">Проверить / Исправить (через ChatGPT)</button>
+      <button id="renderOnly">Отрисовать только локально</button>
+      <div class="status" id="status">Готово.</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <h3>Исправленный LaTeX</h3>
+      <pre id="corrected">—</pre>
+
+      <h3>Отрисовка (MathJax)</h3>
+      <div id="rendered" class="small">—</div>
+    </div>
+
+    <div>
+      <h3>Читаемая (Unicode)</h3>
+      <pre id="readable">—</pre>
+    </div>
+  </div>
+
+  <h3>Пояснение</h3>
+  <pre id="explain">—</pre>
+
+  <footer style="margin-top:14px;" class="muted">API-ключ будет виден в этом файле — не публикуй его публично.</footer>
+
+  <!-- MathJax -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <script>
+  let OPENAI_API_KEY = null; // Will be loaded from config
+
+  // Load configuration on page load
+  async function loadConfig() {
+    try {
+      const response = await fetch('/config');
+      const config = await response.json();
+      
+      if (config.openaiApiKey) {
+        OPENAI_API_KEY = config.openaiApiKey;
+        console.log('✅ OpenAI API key loaded successfully');
+      } else {
+        console.error('❌ OpenAI API key not configured');
+        statusEl.textContent = 'Ошибка: OpenAI API ключ не настроен';
+        statusEl.style.color = 'red';
+      }
+    } catch (error) {
+      console.error('❌ Failed to load config:', error);
+      statusEl.textContent = 'Ошибка загрузки конфигурации';
+      statusEl.style.color = 'red';
+    }
+  }
+
+  // Initialize on page load
+  window.addEventListener('DOMContentLoaded', loadConfig);
+
+  const $ = id => document.getElementById(id);
+  const inputEl = $('input');
+  const btnCheck = $('check');
+  const btnRender = $('renderOnly');
+  const statusEl = $('status');
+
+  const correctedEl = $('corrected');
+  const renderedEl = $('rendered');
+  const readableEl = $('readable');
+  const explainEl = $('explain');
+
+  const systemPrompt = `Ты — эксперт по LaTeX и математике.
+Исправь ошибки в LaTeX (\\pi, \\frac, \\in, \\mathbb{Z}, скобки и т.д.), приведи к красивому виду.
+Верни JSON вида:
+{
+  "correctedLatex": "...",
+  "readable": "...",
+  "explanation": "..."
+}`;
+
+  // Автогенерация читаемой строки из LaTeX
+  function generateReadableFromLatex(latex){
+    if(!latex) return '';
+    let s = latex;
+    s = s.replace(/\\pi/g, 'π')
+         .replace(/\\in/g, '∈')
+         .replace(/\\mathbb\{Z\}/g, 'ℤ')
+         .replace(/\\frac\s*\{([^}]*)\}\s*\{([^}]*)\}/g, '($1)/($2)')
+         .replace(/\\cdot/g, '·')
+         .replace(/\\left|\\right/g, '')
+         .replace(/\\/g, '');
+    return s.trim();
+  }
+
+  async function callOpenAI(userText){
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API ключ не настроен!');
+    }
+    
+    const payload = {
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userText }
+      ],
+      max_tokens: 500,
+      temperature: 0
+    };
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + OPENAI_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await r.json();
+    return data?.choices?.[0]?.message?.content ?? '';
+  }
+
+  async function handleCheck(){
+    const text = inputEl.value.trim();
+    if(!text){ alert('Введите выражение'); return; }
+    statusEl.textContent = 'Запрос...';
+    correctedEl.textContent = readableEl.textContent = explainEl.textContent = '—';
+    renderedEl.innerHTML = '—';
+
+    try {
+      const reply = await callOpenAI(text);
+      let parsed = null;
+      try { parsed = JSON.parse(reply); } catch(e){}
+      if(!parsed){ throw new Error("Невалидный JSON от модели: " + reply); }
+
+      correctedEl.textContent = parsed.correctedLatex ?? '(пусто)';
+      readableEl.textContent = parsed.readable ?? generateReadableFromLatex(parsed.correctedLatex);
+      explainEl.textContent = parsed.explanation ?? '(нет пояснений)';
+
+      renderMath(parsed.correctedLatex);
+      statusEl.textContent = 'Готово.';
+    } catch(err){
+      statusEl.textContent = 'Ошибка: ' + err.message;
+    }
+  }
+
+  function renderMath(latex){
+    if(!latex){ renderedEl.textContent = '(пусто)'; return; }
+    renderedEl.innerHTML = `$$${latex}$$`;
+    if(window.MathJax?.typesetPromise){
+      window.MathJax.typesetPromise([renderedEl]).catch(()=>{ renderedEl.textContent = latex; });
+    }
+  }
+
+  function handleRenderOnly(){
+    const text = inputEl.value.trim();
+    correctedEl.textContent = text || '(пусто)';
+    readableEl.textContent = generateReadableFromLatex(text);
+    explainEl.textContent = '(отрисовка без запроса)';
+    renderMath(text);
+    statusEl.textContent = 'Готово (локально).';
+  }
+
+  btnCheck.addEventListener('click', handleCheck);
+  btnRender.addEventListener('click', handleRenderOnly);
+
+  </script>
+</body>
+</html>
+

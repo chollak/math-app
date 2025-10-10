@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math App - Подготовка к экзаменам</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .api-info {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .endpoint {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Math App API</h1>
+        <p>Добро пожаловать в систему подготовки к экзаменам!</p>
+        
+        <div class="api-info">
+            <h3>API Endpoints:</h3>
+            
+            <div class="endpoint">
+                <strong>POST /api/questions</strong><br>
+                Создать новый вопрос с вариантами ответов и изображениями
+            </div>
+            
+            <div class="endpoint">
+                <strong>GET /api/questions</strong><br>
+                Получить все вопросы
+            </div>
+            
+            <div class="endpoint">
+                <strong>GET /api/questions/:id</strong><br>
+                Получить конкретный вопрос по ID
+            </div>
+            
+            <div class="endpoint">
+                <strong>POST /api/contexts</strong><br>
+                Создать новый контекст с изображениями
+            </div>
+            
+            <div class="endpoint">
+                <strong>GET /api/contexts</strong><br>
+                Получить все контексты
+            </div>
+            
+            <div class="endpoint">
+                <strong>GET /health</strong><br>
+                Проверка состояния сервера
+            </div>
+        </div>
+        
+        <p><strong>Server Status:</strong> <span id="status">Проверка...</span></p>
+        <p><strong>Время:</strong> <span id="time"></span></p>
+    </div>
+
+    <script>
+        // Check server status
+        fetch('/health')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('status').textContent = data.status === 'OK' ? 'Работает' : 'Ошибка';
+                document.getElementById('status').style.color = data.status === 'OK' ? 'green' : 'red';
+            })
+            .catch(error => {
+                document.getElementById('status').textContent = 'Не доступен';
+                document.getElementById('status').style.color = 'red';
+            });
+        
+        // Update time
+        function updateTime() {
+            document.getElementById('time').textContent = new Date().toLocaleString('ru-RU');
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>

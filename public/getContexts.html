@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Просмотр контекстов — /api/contexts</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f7f9fc; --card:#fff; --accent:#007bff; --muted:#6b7280;
+      --radius:12px;
+    }
+    body{
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:var(--bg);
+      margin:0;
+      padding:28px;
+      color:#111827;
+    }
+    header{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:18px;
+      max-width:1000px;
+      margin-left:auto;
+      margin-right:auto;
+    }
+    h1{ margin:0; font-size:20px; color:var(--accent); }
+    .controls{ display:flex; gap:8px; align-items:center; }
+    .btn{
+      background:var(--accent);
+      color:white;
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-size:14px;
+    }
+    .btn.secondary{ background:#6b7280; }
+    .search{
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid #d1d5db;
+      font-size:14px;
+      width:220px;
+    }
+
+    main{ max-width:1000px; margin:auto; }
+
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:0 6px 20px rgba(2,6,23,0.06);
+      margin-bottom:16px;
+      overflow:hidden;
+    }
+    .card h2{ margin:0 0 8px 0; font-size:16px; color:var(--accent); display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .meta{ color:var(--muted); font-size:13px; margin-bottom:8px; }
+    .fields{ display:grid; grid-template-columns: 180px 1fr; gap:8px 12px; align-items:start; }
+    .field-key{ font-weight:600; color:#0f172a; font-size:13px; }
+    .field-value{ font-size:14px; color:#111827; word-break:break-word; white-space:pre-wrap; }
+
+    .photos{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .photos a{ display:inline-block; border-radius:8px; overflow:hidden; border:1px solid #e6e9ee; background:#fafafa; max-width:200px; }
+    .photos img{ display:block; width:200px; height:140px; object-fit:cover; }
+
+    pre.json{
+      background:#0f172a; color:#e6eef8; padding:12px; border-radius:8px; overflow:auto; max-height:260px;
+      font-size:12px; line-height:1.4;
+    }
+
+    .empty{ text-align:center; color:var(--muted); padding:30px 0; }
+
+    @media (max-width:720px){
+      .fields{ grid-template-columns: 1fr; }
+      .photos img{ width:140px; height:100px; }
+      .photos a{ max-width:140px; }
+      .search{ width:140px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Список контекстов (GET /api/contexts)</h1>
+    <div class="controls">
+      <input id="searchInput" class="search" placeholder="Поиск по title / text..." />
+      <button id="refreshBtn" class="btn">Обновить</button>
+      <button id="showAllJsonBtn" class="btn secondary">Показать весь JSON</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="loader" class="empty">Загрузка данных...</div>
+    <div id="list"></div>
+    <div id="allJsonContainer" style="display:none; margin-top:12px;">
+      <h3 style="margin:0 0 8px 0; color:#0f172a;">Весь JSON ответа</h3>
+      <pre id="allJson" class="json"></pre>
+    </div>
+    <div id="error" class="empty" style="display:none;"></div>
+  </main>
+
+  <script>
+    // <- если нужно, поменяй базовый URL
+    const API_BASE = 'https://math-app-production.up.railway.app';
+    const ENDPOINT = API_BASE + '/api/contexts';
+
+    const listEl = document.getElementById('list');
+    const loaderEl = document.getElementById('loader');
+    const errorEl = document.getElementById('error');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const searchInput = document.getElementById('searchInput');
+    const showAllJsonBtn = document.getElementById('showAllJsonBtn');
+    const allJsonContainer = document.getElementById('allJsonContainer');
+    const allJsonPre = document.getElementById('allJson');
+
+    let lastResponse = null;
+
+    async function fetchAndRender() {
+      loaderEl.style.display = 'block';
+      loaderEl.textContent = 'Загрузка данных...';
+      errorEl.style.display = 'none';
+      listEl.innerHTML = '';
+      allJsonContainer.style.display = 'none';
+
+      try {
+        const res = await fetch(ENDPOINT);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        lastResponse = data;
+        renderList(data);
+        loaderEl.style.display = 'none';
+      } catch (err) {
+        loaderEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorEl.textContent = 'Ошибка загрузки: ' + err.message;
+      }
+    }
+
+    function renderList(data){
+      listEl.innerHTML = '';
+      if (!Array.isArray(data) || data.length === 0) {
+        loaderEl.style.display = 'block';
+        loaderEl.textContent = 'Нет данных.';
+        return;
+      }
+
+      data.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const titleText = item.title || (item.name || 'Без заголовка');
+        const h2 = document.createElement('h2');
+        h2.textContent = titleText;
+
+        // small meta (id + created_at)
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const parts = [];
+        if (item.id !== undefined) parts.push('id: ' + item.id);
+        if (item.created_at) parts.push('created: ' + item.created_at);
+        if (item.updated_at) parts.push('updated: ' + item.updated_at);
+        meta.textContent = parts.join(' • ');
+        h2.appendChild(document.createElement('span')); // keeps layout consistent
+        card.appendChild(h2);
+        if (parts.length) card.appendChild(meta);
+
+        // fields grid - show all keys (photos handled separately)
+        const fields = document.createElement('div');
+        fields.className = 'fields';
+
+        for (const key of Object.keys(item)) {
+          // Skip photos here — we will render them below in a photo grid
+          if (key === 'photos') continue;
+
+          const keyEl = document.createElement('div');
+          keyEl.className = 'field-key';
+          keyEl.textContent = key;
+
+          const valueEl = document.createElement('div');
+          valueEl.className = 'field-value';
+
+          const val = item[key];
+
+          if (val === null || val === undefined) {
+            valueEl.textContent = '—';
+          } else if (typeof val === 'string') {
+            // preserve line breaks
+            valueEl.textContent = val;
+            valueEl.style.whiteSpace = 'pre-wrap';
+          } else if (Array.isArray(val)) {
+            // small list
+            const ul = document.createElement('ul');
+            ul.style.margin = 0;
+            ul.style.paddingLeft = '18px';
+            val.forEach(v => {
+              const li = document.createElement('li');
+              if (v === null || v === undefined) li.textContent = '—';
+              else if (typeof v === 'object') li.textContent = JSON.stringify(v);
+              else li.textContent = String(v);
+              ul.appendChild(li);
+            });
+            valueEl.appendChild(ul);
+          } else if (typeof val === 'object') {
+            const pre = document.createElement('pre');
+            pre.className = 'json';
+            pre.textContent = JSON.stringify(val, null, 2);
+            valueEl.appendChild(pre);
+          } else {
+            valueEl.textContent = String(val);
+          }
+
+          fields.appendChild(keyEl);
+          fields.appendChild(valueEl);
+        }
+
+        card.appendChild(fields);
+
+        // photos array (if exists)
+        if (Array.isArray(item.photos) && item.photos.length) {
+          const photosDiv = document.createElement('div');
+          photosDiv.className = 'photos';
+          item.photos.forEach(filename => {
+            if (!filename) return;
+            const a = document.createElement('a');
+            a.href = API_BASE + '/api/files/' + encodeURIComponent(filename);
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+
+            const img = document.createElement('img');
+            img.loading = 'lazy';
+            img.alt = filename;
+            img.src = API_BASE + '/api/files/' + encodeURIComponent(filename);
+            a.appendChild(img);
+
+            const caption = document.createElement('div');
+            caption.style.fontSize = '12px';
+            caption.style.padding = '6px';
+            // caption.textContent = filename;
+
+            photosDiv.appendChild(a);
+          });
+          card.appendChild(photosDiv);
+        }
+
+        // raw JSON toggle
+        const rawBtn = document.createElement('button');
+        rawBtn.className = 'btn secondary';
+        rawBtn.style.marginTop = '12px';
+        rawBtn.textContent = 'Показать JSON записи';
+        const pre = document.createElement('pre');
+        pre.className = 'json';
+        pre.style.display = 'none';
+        pre.textContent = JSON.stringify(item, null, 2);
+        rawBtn.onclick = () => {
+          pre.style.display = pre.style.display === 'none' ? 'block' : 'none';
+          rawBtn.textContent = pre.style.display === 'none' ? 'Показать JSON записи' : 'Скрыть JSON записи';
+        };
+
+        card.appendChild(rawBtn);
+        card.appendChild(pre);
+
+        listEl.appendChild(card);
+      });
+    }
+
+    // filter helper (simple text search over title and text)
+    function applySearch() {
+      const q = searchInput.value.trim().toLowerCase();
+      if (!lastResponse) return;
+      if (!q) {
+        renderList(lastResponse);
+        return;
+      }
+      const filtered = lastResponse.filter(item => {
+        const title = (item.title || '').toString().toLowerCase();
+        const text = (item.text || '').toString().toLowerCase();
+        return title.includes(q) || text.includes(q) || (item.photos && item.photos.join(' ').toLowerCase().includes(q));
+      });
+      renderList(filtered);
+    }
+
+    refreshBtn.onclick = fetchAndRender;
+    searchInput.oninput = applySearch;
+    showAllJsonBtn.onclick = () => {
+      if (!lastResponse) return;
+      allJsonPre.textContent = JSON.stringify(lastResponse, null, 2);
+      allJsonContainer.style.display = allJsonContainer.style.display === 'none' ? 'block' : 'none';
+      showAllJsonBtn.textContent = allJsonContainer.style.display === 'none' ? 'Показать весь JSON' : 'Скрыть весь JSON';
+    };
+
+    // initial load
+    fetchAndRender();
+  </script>
+</body>
+</html>

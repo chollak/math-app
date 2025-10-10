@@ -1,0 +1,415 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Math OCR Bot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9fafc;
+    }
+
+    h2 {
+      color: #2c3e50;
+    }
+
+    #preview {
+      max-width: 600px;
+      display: none;
+      margin: 15px 0;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    pre {
+      background: #f4f6f9;
+      padding: 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      font-size: 15px;
+      border: 1px solid #e1e4e8;
+    }
+
+    button {
+      margin: 6px 4px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: none;
+      font-size: 15px;
+      background: #3498db;
+      color: white;
+      font-weight: 600;
+      transition: background 0.25s, transform 0.15s;
+    }
+
+    button:hover {
+      background: #2980b9;
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    select, input[type="text"] {
+      padding: 6px 10px;
+      margin: 6px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .copy-status {
+      display: none;
+      color: green;
+      font-size: 13px;
+      margin-left: 10px;
+    }
+
+    .excel-line {
+      background: #eef6ff;
+      padding: 8px;
+      margin: 6px 0;
+      border-radius: 6px;
+      font-family: monospace;
+      border: 1px solid #cce0ff;
+    }
+
+    h3 {
+      color: #34495e;
+    }
+
+    h4 {
+      margin-top: 10px;
+      color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <h2>📷 Math OCR Bot</h2>
+
+  <input type="file" id="fileInput" accept="image/*" multiple>
+  <br><br>
+  <img id="preview">
+
+  <br>
+  <button onclick="prevImage()">⬅ Предыдущее</button>
+  <button onclick="nextImage()">➡ Следующее</button>
+
+  <br><br>
+  <label>Язык:</label>
+  <select id="langSelect">
+    <option value="ru">Русский</option>
+    <option value="kz">Қазақша</option>
+  </select>
+
+  <label>Сложность:</label>
+  <select id="levelSelect">
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+  </select>
+
+  <label>Модель:</label>
+  <select id="modelSelect">
+    <option value="gpt-4o-mini" selected>gpt-4o-mini</option>
+    <option value="gpt-4o">gpt-4o</option>
+    <option value="gpt-4">gpt-4</option>
+    <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+    <option value="gpt-5">gpt-5</option>
+   
+  </select>
+
+  <br><br>
+  <label>Правильный ответ:</label>
+  <input type="text" id="answerInput" placeholder="A, B, C..." style="width: 80px;">
+  <button onclick="detectAnswer()">🤖 Определить правильный ответ</button>
+  <span id="aiStatus" style="display:none; color:blue;">⏳ AI думает...</span>
+
+  <br><br>
+  <button onclick="processImage()">📤 Отправить</button>
+
+  <div id="result"></div>
+
+  <script>
+    let OPENAI_API_KEY = null; // Will be loaded from config
+    let selectedFiles = [];
+    let currentIndex = 0;
+    let lastExtractedText = "";
+
+    // Load configuration on page load
+    async function loadConfig() {
+      try {
+        const response = await fetch('/config');
+        const config = await response.json();
+        
+        if (config.openaiApiKey) {
+          OPENAI_API_KEY = config.openaiApiKey;
+          console.log('✅ OpenAI API key loaded successfully');
+        } else {
+          console.error('❌ OpenAI API key not configured');
+          alert('Ошибка: OpenAI API ключ не настроен. Обратитесь к администратору.');
+        }
+      } catch (error) {
+        console.error('❌ Failed to load config:', error);
+        alert('Ошибка загрузки конфигурации. Убедитесь что сервер запущен.');
+      }
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', loadConfig);
+
+    // --- превью ---
+    document.getElementById("fileInput").addEventListener("change", function() {
+      selectedFiles = Array.from(this.files);
+      currentIndex = 0;
+      showPreview();
+    });
+
+    function showPreview() {
+      if (!selectedFiles.length) return;
+      const file = selectedFiles[currentIndex];
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.getElementById("preview");
+        img.src = e.target.result;
+        img.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function prevImage() {
+      if (!selectedFiles.length) return;
+      currentIndex = (currentIndex - 1 + selectedFiles.length) % selectedFiles.length;
+      showPreview();
+    }
+
+    function nextImage() {
+      if (!selectedFiles.length) return;
+      currentIndex = (currentIndex + 1) % selectedFiles.length;
+      showPreview();
+    }
+
+    // --- Подготовка изображения ---
+    function preprocessImage(file, callback) {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = e => {
+        img.src = e.target.result;
+      };
+
+      img.onload = () => {
+        const maxWidth = 1200;
+        const scale = Math.min(maxWidth / img.width, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+
+        const ctx = canvas.getContext("2d");
+        ctx.filter = "contrast(120%)";
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(
+          blob => {
+            const reader2 = new FileReader();
+            reader2.onloadend = () => {
+              const base64 = reader2.result.split(",")[1];
+              callback(base64);
+            };
+            reader2.readAsDataURL(blob);
+          },
+          "image/jpeg",
+          0.8
+        );
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    // --- отрисовка результатов ---
+    function renderResult(correctAnswer) {
+      if (!lastExtractedText) return;
+
+      const level = document.getElementById("levelSelect").value;
+      let resultHtml = "";
+      let allExcelLines = [];
+
+      const regex = /\[(Оригинал|Перевод):\s*(Русский|Қазақша)\]([\s\S]*?)(?=\[(?:Оригинал|Перевод):|$)/g;
+      let match;
+
+      while ((match = regex.exec(lastExtractedText)) !== null) {
+        const type = match[1];
+        const blockLang = match[2];
+        const content = match[3].trim();
+
+        const lines = content.split("\n").filter(line => line.trim() !== "");
+        const question = lines[0] || "";
+        const answers = lines.slice(1).map(line => line.replace(/^[A-Ja-j]\)\s*/, ""));
+
+        function sanitize(str) {
+          return str
+        }
+
+        const excelLine = [
+          blockLang,
+          correctAnswer || "-",
+          level,
+          sanitize(question),
+          ...answers.map(a => sanitize(a))
+        ].join("\t");
+
+        allExcelLines.push(excelLine);
+
+        resultHtml += `
+          <h3>📖 ${type}: ${blockLang}</h3>
+          <pre>${content}</pre>
+          <h4>📊 Excel-строка (${type}: ${blockLang})</h4>
+          <div class="excel-line">${excelLine}</div>
+          <button onclick="copyExcel(this, \`${excelLine}\`)">📋 Скопировать Excel (${type}: ${blockLang})</button>
+          <div class="copy-status">✔ Скопировано</div>
+        `;
+      }
+
+      const allLines = allExcelLines.join("\n");
+      resultHtml =
+        `<button onclick="copyAllExcel(\`${allLines}\`)">📋 Скопировать всё (${allExcelLines.length} строк)</button>
+         <div id="allCopyStatus" class="copy-status">✔ Все строки скопированы</div>`
+        + resultHtml;
+
+      document.getElementById("result").innerHTML = resultHtml;
+    }
+
+    // --- отправка ---
+    async function processImage() {
+      if (!selectedFiles.length) return alert("Выберите файл!");
+      if (!OPENAI_API_KEY) return alert("OpenAI API ключ не настроен!");
+      
+      const file = selectedFiles[currentIndex];
+      const userLang = document.getElementById("langSelect").value;
+      const correctAnswer = document.getElementById("answerInput").value.trim();
+      const model = document.getElementById("modelSelect").value;
+
+      preprocessImage(file, async (base64) => {
+        let prompt = userLang === "ru"
+          ? `Исходный текст на русском языке.
+1. Извлеки вопрос и варианты ответов в чистый LaTeX (русский, как есть).
+2. Переведи этот же вопрос и варианты на казахский язык в чистый LaTeX.
+
+Формат:
+
+[Оригинал: Русский]
+<вопрос + варианты>
+
+[Перевод: Қазақша]
+<сұрақ + нұсқалар>`
+          : `Исходный текст на казахском языке.
+1. Извлеки сұрақ және нұсқалар в чистый LaTeX (қазақша, как есть).
+2. Переведи этот же вопрос и варианты на русский язык в чистый LaTeX.
+
+Формат:
+
+[Оригинал: Қазақша]
+<сұрақ + нұсқалар>
+
+[Перевод: Русский]
+<вопрос + варианты>`;
+
+        document.getElementById("result").innerHTML = "⏳ Обработка...";
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + OPENAI_API_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: "system", content: "Ты помощник по математическим задачам." },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
+                ]
+              }
+            ],
+            temperature: 0.2
+          })
+        });
+
+        const data = await response.json();
+
+        const text =
+          data.choices?.[0]?.message?.content ||
+          data.choices?.[0]?.message?.content?.[0]?.text ||
+          "⚠ Ошибка: пустой ответ от модели";
+
+        lastExtractedText = text;
+        renderResult(correctAnswer);
+      });
+    }
+
+    // --- AI выбор ответа ---
+    async function detectAnswer() {
+      if (!lastExtractedText) return alert("Сначала обработайте задачу!");
+      if (!OPENAI_API_KEY) return alert("OpenAI API ключ не настроен!");
+      
+      const status = document.getElementById("aiStatus");
+      status.style.display = "inline";
+      const model = document.getElementById("modelSelect").value;
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + OPENAI_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: "system", content: "Ты математический ассистент. Определи правильный ответ." },
+            { role: "user", content: `Вот задача:\n${lastExtractedText}\n\nОтветь только буквой (A, B, C, D...).` }
+          ],
+          temperature: 0
+        })
+      });
+
+      const data = await response.json();
+      const aiAnswer =
+        data.choices?.[0]?.message?.content?.trim() ||
+        data.choices?.[0]?.message?.content?.[0]?.text?.trim() ||
+        "";
+
+      const cleanAnswer = aiAnswer.replace(/[^A-J]/gi, "");
+      document.getElementById("answerInput").value = cleanAnswer;
+      status.style.display = "none";
+
+      renderResult(cleanAnswer);
+    }
+
+    // --- копирование ---
+    function copyExcel(button, line) {
+      navigator.clipboard.writeText(line).then(() => {
+        const status = button.nextElementSibling;
+        status.style.display = "block";
+        setTimeout(() => status.style.display = "none", 2000);
+      });
+    }
+
+    function copyAllExcel(allLines) {
+      navigator.clipboard.writeText(allLines).then(() => {
+        const status = document.getElementById("allCopyStatus");
+        status.style.display = "block";
+        setTimeout(() => status.style.display = "none", 2000);
+      });
+    }
+  </script>
+</body>
+</html>
