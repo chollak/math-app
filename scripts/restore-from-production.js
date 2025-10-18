@@ -12,8 +12,9 @@ const sqlite3 = require('sqlite3').verbose();
 
 // Configuration
 const PROD_BASE_URL = 'https://math-app-production.up.railway.app';
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '../database/database.sqlite');
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
+const storageConfig = require('../src/config/storage');
+const DB_PATH = storageConfig.databasePath;
+const UPLOADS_DIR = storageConfig.uploadsPath;
 
 console.log('🚀 Starting data restoration from production...');
 console.log(`📍 Database path: ${DB_PATH}`);

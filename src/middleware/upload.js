@@ -1,12 +1,10 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const storageConfig = require('../config/storage');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Use storage config for uploads directory
+const uploadsDir = storageConfig.uploadsPath;
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({

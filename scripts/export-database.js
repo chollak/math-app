@@ -15,8 +15,8 @@ require('dotenv').config();
 // Get database path from config
 function getDatabasePath() {
   try {
-    const database = require('../src/config/database');
-    return database.dbPath;
+    const storageConfig = require('../src/config/storage');
+    return storageConfig.databasePath;
   } catch (error) {
     console.log('⚠️  Using fallback database path');
     return process.env.DATABASE_PATH || path.join(__dirname, '../database/database.sqlite');

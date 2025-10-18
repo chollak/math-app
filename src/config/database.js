@@ -1,34 +1,10 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const storageConfig = require('./storage');
 
-// Database path configuration for different environments
-function getDatabasePath() {
-  // Priority: 1. Environment variable, 2. Railway volume, 3. Default local path
-  if (process.env.DATABASE_PATH) {
-    return process.env.DATABASE_PATH;
-  }
-  
-  // Railway volume path (when volume is mounted)
-  const railwayVolumePath = '/app/database/database.sqlite';
-  if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-    const mountPath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
-    return path.join(mountPath, 'database.sqlite');
-  }
-  
-  // Check if we're in Railway environment and volume exists
-  if (process.env.RAILWAY_ENVIRONMENT && fs.existsSync('/app/database')) {
-    console.log('🚂 Railway volume detected, using persistent storage');
-    return railwayVolumePath;
-  }
-  
-  // Default local development path
-  const defaultPath = path.join(__dirname, '../../database/database.sqlite');
-  console.log('💻 Using local development database path');
-  return defaultPath;
-}
-
-const dbPath = getDatabasePath();
+// Use storage config for database path
+const dbPath = storageConfig.databasePath;
 const dbDir = path.dirname(dbPath);
 
 console.log(`📍 Database configuration:`);
@@ -37,10 +13,7 @@ console.log(`   Path: ${dbPath}`);
 console.log(`   Directory: ${dbDir}`);
 console.log(`   Railway: ${process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No'}`);
 
-// Ensure database directory exists
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
+// Directory creation is handled by storage config
 
 let db;
 let dbConnected = false;

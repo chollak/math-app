@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const storageConfig = require('../config/storage');
 
 // Serve uploaded files
 router.get('/:filename', (req, res) => {
   const { filename } = req.params;
-  const filePath = path.join(__dirname, '../../uploads', filename);
+  const filePath = path.join(storageConfig.uploadsPath, filename);
 
   // Check if file exists
   if (!fs.existsSync(filePath)) {
