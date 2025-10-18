@@ -10,6 +10,7 @@
     "import-db": "node scripts/import-database.js",
     "restore-from-prod": "node scripts/restore-from-production.js",
     "migrate-uploads": "node scripts/migrate-uploads.js",
+    "sync-to-railway": "node scripts/railway-sync.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
