@@ -8,6 +8,7 @@
     "dev": "node src/app.js",
     "export-db": "node scripts/export-database.js",
     "import-db": "node scripts/import-database.js",
+    "restore-from-prod": "node scripts/restore-from-production.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
