@@ -10,6 +10,7 @@ require('dotenv').config();
 const questionRoutes = require('./routes/questions');
 const contextRoutes = require('./routes/contexts');
 const fileRoutes = require('./routes/files');
+const adminRoutes = require('./routes/admin');
 const asyncHandler = require('./middleware/asyncHandler');
 
 // Initialize database
@@ -42,6 +43,7 @@ app.use(express.static('public'));
 app.use('/api/questions', questionRoutes);
 app.use('/api/contexts', contextRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/admin', adminRoutes);
 
 // Configuration endpoint for frontend
 app.get('/config', (req, res) => {
@@ -97,7 +99,10 @@ app.get('/', (req, res) => {
       'DELETE /api/contexts/:id': 'Delete context',
       'GET /api/files/:filename': 'Get uploaded image files',
       'GET /config': 'Get configuration for frontend (API keys)',
-      'GET /health': 'Health check'
+      'GET /health': 'Health check',
+      'GET /admin/export?token=': 'Export database (admin only)',
+      'GET /admin/stats?token=': 'Database statistics (admin only)',
+      'GET /admin/health?token=': 'Detailed health check (admin only)'
     }
   });
 });
