@@ -1,4 +1,5 @@
 const database = require('../config/database');
+const Suboption = require('./Suboption');
 
 class AnswerOption {
   static createBatch(questionId, options, language, callback) {
@@ -20,21 +21,32 @@ class AnswerOption {
     options.forEach((option, index) => {
       const optionLetter = letters[index];
       
-      // Handle both old format (object) and new format (string)
+      // Handle different option formats
       let optionTextRu = null;
       let optionTextKz = null;
+      let suboptions = null;
       
       if (typeof option === 'string') {
-        // New simplified format - just a string
+        // Simple string format
         if (language === 'kz') {
           optionTextKz = option;
         } else {
           optionTextRu = option;
         }
       } else if (typeof option === 'object') {
-        // Old format - object with separate language fields
-        optionTextRu = option.option_text_ru;
-        optionTextKz = option.option_text_kz;
+        if (option.text && option.suboptions) {
+          // New format with suboptions
+          if (language === 'kz') {
+            optionTextKz = option.text;
+          } else {
+            optionTextRu = option.text;
+          }
+          suboptions = option.suboptions;
+        } else {
+          // Old format - object with separate language fields
+          optionTextRu = option.option_text_ru;
+          optionTextKz = option.option_text_kz;
+        }
       }
       
       stmt.run([
@@ -49,19 +61,40 @@ class AnswerOption {
           return;
         }
         
-        results.push({
-          id: this.lastID,
+        const optionId = this.lastID;
+        const resultOption = {
+          id: optionId,
           question_id: questionId,
           option_letter: optionLetter,
           option_text_ru: optionTextRu,
           option_text_kz: optionTextKz,
           order_index: index
-        });
+        };
         
-        completed++;
-        if (completed === options.length) {
-          stmt.finalize();
-          callback(null, results);
+        // Create suboptions if they exist
+        if (suboptions && suboptions.length > 0) {
+          Suboption.createBatch(optionId, suboptions, (subErr, createdSuboptions) => {
+            if (subErr) {
+              callback(subErr, null);
+              return;
+            }
+            
+            resultOption.suboptions = createdSuboptions;
+            results.push(resultOption);
+            
+            completed++;
+            if (completed === options.length) {
+              stmt.finalize();
+              callback(null, results);
+            }
+          });
+        } else {
+          results.push(resultOption);
+          completed++;
+          if (completed === options.length) {
+            stmt.finalize();
+            callback(null, results);
+          }
         }
       });
     });
@@ -78,7 +111,25 @@ class AnswerOption {
       if (err) {
         callback(err, null);
       } else {
-        callback(null, rows);
+        // Get suboptions for all options
+        const optionIds = rows.map(row => row.id);
+        
+        if (optionIds.length === 0) {
+          return callback(null, rows);
+        }
+        
+        Suboption.findByOptionIds(optionIds, (subErr, suboptions) => {
+          if (subErr) {
+            callback(subErr, null);
+          } else {
+            // Attach suboptions to their respective options
+            const enrichedRows = rows.map(row => ({
+              ...row,
+              suboptions: suboptions[row.id] || []
+            }));
+            callback(null, enrichedRows);
+          }
+        });
       }
     });
   }

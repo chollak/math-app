@@ -66,38 +66,107 @@ class Question {
       if (err) {
         callback(err, null);
       } else {
-        // Transform data to new format
-        const questions = rows.map(row => {
-          const language = row.language || 'ru';
-          const questionText = language === 'kz' ? row.question_kz : row.question_ru;
+        // Get detailed options with suboptions for all questions
+        const questionIds = rows.map(row => row.id);
+        
+        if (questionIds.length === 0) {
+          return callback(null, []);
+        }
+        
+        // Get all answer options for these questions
+        const optionsSql = `
+          SELECT ao.*, s.id as sub_id, s.text as sub_text, s.correct as sub_correct, s.order_index as sub_order
+          FROM answer_options ao
+          LEFT JOIN suboptions s ON ao.id = s.option_id
+          WHERE ao.question_id IN (${questionIds.map(() => '?').join(',')})
+          ORDER BY ao.question_id, ao.order_index, s.order_index
+        `;
+        
+        database.db.all(optionsSql, questionIds, (optErr, optionRows) => {
+          if (optErr) {
+            callback(optErr, null);
+            return;
+          }
           
-          // Parse photos and options
-          const photos = JSON.parse(row.photos || '[]');
-          const options = row.options_data ? row.options_data.split(',') : [];
+          // Group options by question and build structure
+          const questionOptions = {};
+          optionRows.forEach(opt => {
+            if (!questionOptions[opt.question_id]) {
+              questionOptions[opt.question_id] = {};
+            }
+            
+            if (!questionOptions[opt.question_id][opt.id]) {
+              questionOptions[opt.question_id][opt.id] = {
+                id: opt.id,
+                option_letter: opt.option_letter,
+                option_text_ru: opt.option_text_ru,
+                option_text_kz: opt.option_text_kz,
+                order_index: opt.order_index,
+                suboptions: []
+              };
+            }
+            
+            // Add suboption if it exists
+            if (opt.sub_id) {
+              questionOptions[opt.question_id][opt.id].suboptions.push({
+                id: opt.sub_id,
+                text: opt.sub_text,
+                correct: opt.sub_correct === 1,
+                order_index: opt.sub_order
+              });
+            }
+          });
           
-          // Build context object
-          const context = row.context_id ? {
-            id: row.context_id,
-            text: row.context_text,
-            title: row.context_title,
-            photos: JSON.parse(row.context_photos || '[]')
-          } : null;
+          // Transform data to new format
+          const questions = rows.map(row => {
+            const language = row.language || 'ru';
+            const questionText = language === 'kz' ? row.question_kz : row.question_ru;
+            
+            // Parse photos
+            const photos = JSON.parse(row.photos || '[]');
+            
+            // Get options for this question
+            const questionOpts = questionOptions[row.id] || {};
+            const options = Object.values(questionOpts).map(opt => {
+              const optionText = language === 'kz' ? opt.option_text_kz : opt.option_text_ru;
+              
+              if (opt.suboptions && opt.suboptions.length > 0) {
+                // Return option with suboptions
+                return {
+                  text: optionText,
+                  suboptions: opt.suboptions
+                };
+              } else {
+                // Return simple option text
+                return optionText;
+              }
+            });
+            
+            // Build context object
+            const context = row.context_id ? {
+              id: row.context_id,
+              text: row.context_text,
+              title: row.context_title,
+              photos: JSON.parse(row.context_photos || '[]')
+            } : null;
+            
+            return {
+              id: row.id,
+              question: questionText,
+              language: language,
+              answer: row.answer,
+              level: row.level,
+              topic: row.topic,
+              photos: photos,
+              created_at: row.created_at,
+              updated_at: row.updated_at,
+              options: options,
+              context: context
+            };
+          });
           
-          return {
-            id: row.id,
-            question: questionText,
-            language: language,
-            answer: row.answer,
-            level: row.level,
-            topic: row.topic,
-            photos: photos,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            options: options,
-            context: context
-          };
+          callback(null, questions);
         });
-        callback(null, questions);
       }
     });
   }

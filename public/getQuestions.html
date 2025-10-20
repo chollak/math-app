@@ -17,6 +17,10 @@
     .title{font-weight:600;margin:2px 0}
     .options{display:flex;gap:6px;flex-wrap:wrap}
     .option{background:#f3f4f6;padding:4px 6px;border-radius:6px;font-size:13px}
+    .suboptions{margin-left:15px;margin-top:5px}
+    .suboption{background:#e6f3ff;padding:2px 4px;border-radius:4px;font-size:12px;display:inline-block;margin:2px}
+    .suboption.correct{background:#d4edda;border:1px solid #c3e6cb}
+    .option-with-suboptions{background:#fff3cd;border:1px solid #ffeaa7}
     .answer{display:inline-block;padding:4px 6px;border-radius:6px;background:#e6fffa;border:1px solid #bff0e7;margin-left:4px;font-size:13px;font-weight:600}
     .photos{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
     .photos img{width:100px;height:100px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #e6eef6}
@@ -70,11 +74,35 @@
 
     function renderList(filter=''){
       const query = filter.toLowerCase();
-      const filtered = allData.filter(q =>
-        Object.values(q).some(v => typeof v === 'string' && v.toLowerCase().includes(query)) ||
-        (q.options && q.options.some(o => o.toLowerCase().includes(query))) ||
-        (q.context && (q.context.text?.toLowerCase().includes(query) || q.context.title?.toLowerCase().includes(query)))
-      );
+      const filtered = allData.filter(q => {
+        // Поиск в основных полях
+        const mainFieldsMatch = Object.values(q).some(v => typeof v === 'string' && v.toLowerCase().includes(query));
+        
+        // Поиск в опциях
+        let optionsMatch = false;
+        if (q.options) {
+          optionsMatch = q.options.some(o => {
+            if (typeof o === 'string') {
+              return o.toLowerCase().includes(query);
+            } else if (typeof o === 'object' && o.text) {
+              const textMatch = o.text.toLowerCase().includes(query);
+              const suboptionsMatch = o.suboptions && o.suboptions.some(sub => 
+                sub.text && sub.text.toLowerCase().includes(query)
+              );
+              return textMatch || suboptionsMatch;
+            }
+            return false;
+          });
+        }
+        
+        // Поиск в контексте
+        const contextMatch = q.context && (
+          q.context.text?.toLowerCase().includes(query) || 
+          q.context.title?.toLowerCase().includes(query)
+        );
+        
+        return mainFieldsMatch || optionsMatch || contextMatch;
+      });
 
       listEl.innerHTML = '';
       if(filtered.length === 0){
@@ -103,10 +131,38 @@
       optionsWrap.className = 'options';
       if(Array.isArray(q.options)){
         q.options.forEach((opt, idx)=>{
-          const el = document.createElement('div');
-          el.className='option';
-          el.textContent = String.fromCharCode(65+idx)+') '+opt;
-          optionsWrap.appendChild(el);
+          const optionContainer = document.createElement('div');
+          optionContainer.style.marginBottom = '8px';
+          
+          if(typeof opt === 'string') {
+            // Простая опция
+            const el = document.createElement('div');
+            el.className='option';
+            el.textContent = String.fromCharCode(65+idx)+') '+opt;
+            optionContainer.appendChild(el);
+          } else if(typeof opt === 'object' && opt.text && opt.suboptions) {
+            // Опция с подопциями
+            const mainOption = document.createElement('div');
+            mainOption.className = 'option option-with-suboptions';
+            mainOption.textContent = String.fromCharCode(65+idx)+') '+opt.text;
+            optionContainer.appendChild(mainOption);
+            
+            if(opt.suboptions && opt.suboptions.length > 0) {
+              const suboptionsWrap = document.createElement('div');
+              suboptionsWrap.className = 'suboptions';
+              
+              opt.suboptions.forEach(subopt => {
+                const subEl = document.createElement('span');
+                subEl.className = subopt.correct ? 'suboption correct' : 'suboption';
+                subEl.textContent = subopt.text + (subopt.correct ? ' ✓' : '');
+                suboptionsWrap.appendChild(subEl);
+              });
+              
+              optionContainer.appendChild(suboptionsWrap);
+            }
+          }
+          
+          optionsWrap.appendChild(optionContainer);
         });
       }
 

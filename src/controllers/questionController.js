@@ -114,10 +114,27 @@ const questionController = {
           const language = createdQuestion.language || 'ru';
           const questionText = language === 'kz' ? createdQuestion.question_kz : createdQuestion.question_ru;
           
-          // Transform options to simple array format
+          // Transform options to new format, handling suboptions
           const optionsArray = createdOptions.map(option => {
-            return language === 'kz' ? option.option_text_kz : option.option_text_ru;
-          }).filter(text => text); // Remove null/undefined values
+            const optionText = language === 'kz' ? option.option_text_kz : option.option_text_ru;
+            
+            if (option.suboptions && option.suboptions.length > 0) {
+              return {
+                text: optionText,
+                suboptions: option.suboptions
+              };
+            } else {
+              return optionText;
+            }
+          }).filter(option => {
+            // Filter out null/undefined values
+            if (typeof option === 'string') {
+              return option;
+            } else if (typeof option === 'object') {
+              return option.text;
+            }
+            return false;
+          });
 
           res.status(201).json({
             id: createdQuestion.id,
@@ -174,9 +191,31 @@ const questionController = {
           return res.status(500).json({ error: 'Failed to fetch answer options' });
         }
 
+        // Transform options to match the format from Question.findAll
+        const language = question.language || 'ru';
+        const transformedOptions = options.map(option => {
+          const optionText = language === 'kz' ? option.option_text_kz : option.option_text_ru;
+          
+          if (option.suboptions && option.suboptions.length > 0) {
+            return {
+              text: optionText,
+              suboptions: option.suboptions
+            };
+          } else {
+            return optionText;
+          }
+        }).filter(option => {
+          if (typeof option === 'string') {
+            return option;
+          } else if (typeof option === 'object') {
+            return option.text;
+          }
+          return false;
+        });
+
         res.json({
           ...question,
-          options
+          options: transformedOptions
         });
       });
     });

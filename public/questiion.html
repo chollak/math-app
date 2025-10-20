@@ -33,6 +33,32 @@
       border-radius: 5px;
       font-size: 14px;
     }
+    .suboptions-container {
+      margin-left: 20px;
+      margin-top: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      border-left: 3px solid #007bff;
+    }
+    .suboption-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .suboption-item input[type="text"] {
+      flex: 1;
+      margin-right: 10px;
+    }
+    .suboption-item input[type="checkbox"] {
+      margin-left: 10px;
+    }
+    .option-group {
+      border: 1px solid #e9ecef;
+      padding: 10px;
+      border-radius: 5px;
+      background: #fff;
+    }
   </style>
 </head>
 <body class="p-4">
@@ -97,11 +123,25 @@
 
       <div class="mb-3">
         <label class="form-label">Варианты ответов (до 8)</label>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="enableSuboptions">
+          <label class="form-check-label" for="enableSuboptions">
+            Включить подопции (для сложных вопросов с выпадающими списками)
+          </label>
+        </div>
         <div id="optionsContainer">
-          <input type="text" class="form-control mb-1" placeholder="Вариант 1">
-          <input type="text" class="form-control mb-1" placeholder="Вариант 2">
-          <input type="text" class="form-control mb-1" placeholder="Вариант 3">
-          <input type="text" class="form-control mb-1" placeholder="Вариант 4">
+          <div class="option-group mb-2">
+            <input type="text" class="form-control option-text" placeholder="Вариант 1">
+          </div>
+          <div class="option-group mb-2">
+            <input type="text" class="form-control option-text" placeholder="Вариант 2">
+          </div>
+          <div class="option-group mb-2">
+            <input type="text" class="form-control option-text" placeholder="Вариант 3">
+          </div>
+          <div class="option-group mb-2">
+            <input type="text" class="form-control option-text" placeholder="Вариант 4">
+          </div>
         </div>
         <button type="button" id="addOption" class="btn btn-sm btn-outline-primary mt-2">+ Добавить вариант</button>
       </div>
@@ -157,6 +197,7 @@
     const status = document.getElementById('status');
     const addOptionBtn = document.getElementById('addOption');
     const previewBtn = document.getElementById('previewBtn');
+    const enableSuboptionsCheckbox = document.getElementById('enableSuboptions');
 
     let cropper;
     let cropModal = document.getElementById('cropModal');
@@ -175,17 +216,121 @@
         });
       });
 
+    // Переключение режима подопций
+    enableSuboptionsCheckbox.addEventListener('change', () => {
+      updateOptionsUI();
+    });
+
     // Добавление вариантов ответов
     addOptionBtn.addEventListener('click', () => {
       const container = document.getElementById('optionsContainer');
-      const count = container.querySelectorAll('input').length;
+      const count = container.querySelectorAll('.option-group').length;
       if (count >= 8) return alert('Максимум 8 вариантов');
+      
+      const optionGroup = createOptionGroup(count + 1);
+      container.appendChild(optionGroup);
+    });
+
+    function createOptionGroup(index) {
+      const group = document.createElement('div');
+      group.className = 'option-group mb-2';
+      
       const input = document.createElement('input');
       input.type = 'text';
-      input.className = 'form-control mb-1';
-      input.placeholder = `Вариант ${count + 1}`;
-      container.appendChild(input);
-    });
+      input.className = 'form-control option-text';
+      input.placeholder = `Вариант ${index}`;
+      
+      group.appendChild(input);
+      
+      if (enableSuboptionsCheckbox.checked) {
+        addSuboptionsToGroup(group);
+      }
+      
+      return group;
+    }
+
+    function addSuboptionsToGroup(group) {
+      const suboptionsContainer = document.createElement('div');
+      suboptionsContainer.className = 'suboptions-container';
+      
+      const label = document.createElement('small');
+      label.className = 'text-muted';
+      label.textContent = 'Подопции (отметьте правильные):';
+      suboptionsContainer.appendChild(label);
+      
+      // Добавляем 4 подопции по умолчанию
+      for (let i = 0; i < 4; i++) {
+        addSuboptionItem(suboptionsContainer, i + 1);
+      }
+      
+      const addSuboptionBtn = document.createElement('button');
+      addSuboptionBtn.type = 'button';
+      addSuboptionBtn.className = 'btn btn-sm btn-outline-secondary mt-2';
+      addSuboptionBtn.textContent = '+ Добавить подопцию';
+      addSuboptionBtn.onclick = () => {
+        const count = suboptionsContainer.querySelectorAll('.suboption-item').length;
+        if (count >= 8) return alert('Максимум 8 подопций');
+        addSuboptionItem(suboptionsContainer, count + 1);
+      };
+      
+      suboptionsContainer.appendChild(addSuboptionBtn);
+      group.appendChild(suboptionsContainer);
+    }
+
+    function addSuboptionItem(container, index) {
+      const item = document.createElement('div');
+      item.className = 'suboption-item';
+      
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'form-control form-control-sm';
+      input.placeholder = `Подопция ${index}`;
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'form-check-input';
+      checkbox.title = 'Правильный ответ';
+      
+      const label = document.createElement('label');
+      label.className = 'form-check-label ms-1';
+      label.textContent = 'Правильно';
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn btn-sm btn-outline-danger ms-2';
+      removeBtn.textContent = '×';
+      removeBtn.onclick = () => {
+        if (container.querySelectorAll('.suboption-item').length > 1) {
+          item.remove();
+        } else {
+          alert('Должна быть хотя бы одна подопция');
+        }
+      };
+      
+      item.appendChild(input);
+      item.appendChild(checkbox);
+      item.appendChild(label);
+      item.appendChild(removeBtn);
+      
+      // Вставляем перед кнопкой "Добавить подопцию"
+      const addBtn = container.querySelector('button');
+      container.insertBefore(item, addBtn);
+    }
+
+    function updateOptionsUI() {
+      const container = document.getElementById('optionsContainer');
+      const groups = container.querySelectorAll('.option-group');
+      
+      groups.forEach(group => {
+        const existingSuboptions = group.querySelector('.suboptions-container');
+        
+        if (enableSuboptionsCheckbox.checked && !existingSuboptions) {
+          addSuboptionsToGroup(group);
+        } else if (!enableSuboptionsCheckbox.checked && existingSuboptions) {
+          existingSuboptions.remove();
+        }
+      });
+    }
 
     // Обработка фото
     photoInput.addEventListener('change', e => {
@@ -247,9 +392,7 @@
 
     // Предпросмотр JSON
     previewBtn.addEventListener('click', () => {
-      const options = Array.from(document.querySelectorAll('#optionsContainer input'))
-        .map(i => i.value.trim())
-        .filter(Boolean);
+      const options = collectOptionsData();
       const data = {
         question: form.question.value,
         language: form.language.value,
@@ -262,6 +405,45 @@
       document.getElementById('jsonPreview').textContent = JSON.stringify(data, null, 2);
       new bootstrap.Modal(document.getElementById('jsonModal')).show();
     });
+
+    function collectOptionsData() {
+      const groups = document.querySelectorAll('#optionsContainer .option-group');
+      const options = [];
+      
+      groups.forEach(group => {
+        const optionText = group.querySelector('.option-text').value.trim();
+        if (!optionText) return;
+        
+        const suboptionsContainer = group.querySelector('.suboptions-container');
+        
+        if (suboptionsContainer) {
+          // Режим с подопциями
+          const suboptions = [];
+          const suboptionItems = suboptionsContainer.querySelectorAll('.suboption-item');
+          
+          suboptionItems.forEach(item => {
+            const text = item.querySelector('input[type="text"]').value.trim();
+            const correct = item.querySelector('input[type="checkbox"]').checked;
+            
+            if (text) {
+              suboptions.push({ text, correct });
+            }
+          });
+          
+          if (suboptions.length > 0) {
+            options.push({
+              text: optionText,
+              suboptions: suboptions
+            });
+          }
+        } else {
+          // Обычный режим
+          options.push(optionText);
+        }
+      });
+      
+      return options;
+    }
 
     // Отправка формы
     form.addEventListener('submit', async (e) => {
@@ -277,9 +459,7 @@
 
       if (form.context_id.value) fd.append('context_id', form.context_id.value);
 
-      const options = Array.from(document.querySelectorAll('#optionsContainer input'))
-        .map(i => i.value.trim())
-        .filter(Boolean);
+      const options = collectOptionsData();
       fd.append('options', JSON.stringify(options));
 
       croppedFiles.forEach((file, i) => fd.append(`photo${i + 1}`, file, file.name));

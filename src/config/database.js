@@ -183,8 +183,21 @@ function initializeTables() {
       )
     `;
 
+    // Create suboptions table
+    const createSuboptionsTable = `
+      CREATE TABLE IF NOT EXISTS suboptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        option_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        correct BOOLEAN NOT NULL DEFAULT 0,
+        order_index INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (option_id) REFERENCES answer_options (id) ON DELETE CASCADE
+      )
+    `;
+
     let tablesCreated = 0;
-    const totalTables = 3;
+    const totalTables = 4;
     let hasError = false;
 
     function checkCompletion() {
@@ -229,6 +242,17 @@ function initializeTables() {
         reject(err);
       } else {
         console.log('Contexts table ready');
+        checkCompletion();
+      }
+    });
+
+    db.run(createSuboptionsTable, (err) => {
+      if (err) {
+        console.error('Error creating suboptions table:', err.message);
+        hasError = true;
+        reject(err);
+      } else {
+        console.log('Suboptions table ready');
         checkCompletion();
       }
     });
