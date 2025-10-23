@@ -196,8 +196,40 @@ function initializeTables() {
       )
     `;
 
+    // Create exams table
+    const createExamsTable = `
+      CREATE TABLE IF NOT EXISTS exams (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id TEXT NOT NULL,
+        started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        completed_at DATETIME,
+        duration_seconds INTEGER,
+        total_questions INTEGER NOT NULL,
+        total_points REAL DEFAULT 0,
+        max_possible_points REAL DEFAULT 0,
+        status TEXT DEFAULT 'in_progress' CHECK(status IN ('in_progress', 'completed', 'abandoned'))
+      )
+    `;
+
+    // Create exam_questions table
+    const createExamQuestionsTable = `
+      CREATE TABLE IF NOT EXISTS exam_questions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        question_id INTEGER NOT NULL,
+        question_order INTEGER NOT NULL,
+        user_answer TEXT,
+        correct_answer TEXT NOT NULL,
+        points_earned REAL DEFAULT 0,
+        max_points REAL NOT NULL,
+        answered_at DATETIME,
+        FOREIGN KEY (exam_id) REFERENCES exams (id) ON DELETE CASCADE,
+        FOREIGN KEY (question_id) REFERENCES questions (id)
+      )
+    `;
+
     let tablesCreated = 0;
-    const totalTables = 4;
+    const totalTables = 6;
     let hasError = false;
 
     function checkCompletion() {
@@ -253,6 +285,28 @@ function initializeTables() {
         reject(err);
       } else {
         console.log('Suboptions table ready');
+        checkCompletion();
+      }
+    });
+
+    db.run(createExamsTable, (err) => {
+      if (err) {
+        console.error('Error creating exams table:', err.message);
+        hasError = true;
+        reject(err);
+      } else {
+        console.log('Exams table ready');
+        checkCompletion();
+      }
+    });
+
+    db.run(createExamQuestionsTable, (err) => {
+      if (err) {
+        console.error('Error creating exam_questions table:', err.message);
+        hasError = true;
+        reject(err);
+      } else {
+        console.log('Exam questions table ready');
         checkCompletion();
       }
     });
