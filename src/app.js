@@ -11,6 +11,8 @@ const questionRoutes = require('./routes/questions');
 const contextRoutes = require('./routes/contexts');
 const fileRoutes = require('./routes/files');
 const adminRoutes = require('./routes/admin');
+const examRoutes = require('./routes/exams');
+const userRoutes = require('./routes/users');
 const asyncHandler = require('./middleware/asyncHandler');
 
 // Initialize database
@@ -43,6 +45,8 @@ app.use(express.static('public'));
 app.use('/api/questions', questionRoutes);
 app.use('/api/contexts', contextRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/exams', examRoutes);
+app.use('/api/users', userRoutes);
 app.use('/admin', adminRoutes);
 
 // Configuration endpoint for frontend
@@ -89,17 +93,36 @@ app.get('/', (req, res) => {
     message: 'Math App API',
     version: '1.0.0',
     endpoints: {
+      // Questions
       'POST /api/questions': 'Create a new question with options and photos',
       'GET /api/questions': 'Get all questions',
       'GET /api/questions/:id': 'Get specific question by ID',
+
+      // Contexts
       'POST /api/contexts': 'Create a new context with photos',
       'GET /api/contexts': 'Get all contexts',
       'GET /api/contexts/:id': 'Get specific context by ID',
       'PUT /api/contexts/:id': 'Update context',
       'DELETE /api/contexts/:id': 'Delete context',
+
+      // Exams (NEW)
+      'POST /api/exams/start': 'Start a new exam with random questions',
+      'GET /api/exams/:examId/questions': 'Get all questions for an exam',
+      'POST /api/exams/:examId/submit': 'Submit exam with all answers',
+      'GET /api/exams/:examId': 'Get detailed results for specific exam',
+      'GET /api/exams/history/:deviceId': 'Get exam history for a device',
+
+      // Users/Stats (NEW)
+      'GET /api/users/:deviceId/stats': 'Get statistics for a device/user',
+
+      // Files
       'GET /api/files/:filename': 'Get uploaded image files',
+
+      // System
       'GET /config': 'Get configuration for frontend (API keys)',
       'GET /health': 'Health check',
+
+      // Admin
       'GET /admin/export?token=': 'Export database (admin only)',
       'GET /admin/stats?token=': 'Database statistics (admin only)',
       'GET /admin/health?token=': 'Detailed health check (admin only)'
