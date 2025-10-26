@@ -24,17 +24,17 @@ function getDatabasePath() {
 }
 
 const dbPath = getDatabasePath();
-const outputPath = process.argv[2] || path.join(__dirname, '../backups/database-dump.sql');
-
-// Ensure backup directory exists
-const backupDir = path.dirname(outputPath);
-if (!fs.existsSync(backupDir)) {
-  fs.mkdirSync(backupDir, { recursive: true });
-}
+const outputPath = process.argv[2] || path.join(__dirname, '../data/backups/database-dump.sql');
 
 function exportDatabase(customOutputPath = null) {
   const finalOutputPath = customOutputPath || outputPath;
-  
+
+  // Ensure backup directory exists
+  const backupDir = path.dirname(finalOutputPath);
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
+
   return new Promise((resolve, reject) => {
     console.log(`📦 Exporting database from: ${dbPath}`);
     console.log(`💾 Output file: ${finalOutputPath}`);

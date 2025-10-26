@@ -13,7 +13,7 @@ const path = require('path');
 require('dotenv').config();
 
 const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../database/database.sqlite');
-const inputPath = process.argv[2] || path.join(__dirname, '../backups/database-dump.sql');
+const inputPath = process.argv[2] || path.join(__dirname, '../data/backups/database-dump.sql');
 
 function importDatabase() {
   return new Promise((resolve, reject) => {
