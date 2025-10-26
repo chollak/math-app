@@ -16,22 +16,14 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Создание пользователя для запуска приложения (безопасность)
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
 # Копирование зависимостей из base stage
 COPY --from=base /app/node_modules ./node_modules
 
 # Копирование исходного кода приложения
-COPY --chown=nodejs:nodejs . .
+COPY . .
 
-# Создание директорий для данных с правильными правами
-RUN mkdir -p /app/database /app/database/uploads /app/public/images /app/temp && \
-    chown -R nodejs:nodejs /app/database /app/public/images /app/temp
-
-# Переключение на непривилегированного пользователя
-USER nodejs
+# Создание директорий для данных
+RUN mkdir -p /app/database /app/database/uploads /app/public/images /app/temp
 
 # Открытие порта
 EXPOSE 3000
