@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Установка только production зависимостей
-RUN npm ci --only=production && \
+RUN npm install --production && \
     npm cache clean --force
 
 # Production stage
