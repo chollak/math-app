@@ -22,3 +22,4 @@ npm start
 ## Деплой на VPS
 
 См. [DEPLOY.md](./DEPLOY.md)
+# Auto-deploy test
