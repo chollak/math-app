@@ -1,21 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
-const storageConfig = require('../config/storage');
+const fileController = require('../controllers/fileController');
 
-// Serve uploaded files
-router.get('/:filename', (req, res) => {
-  const { filename } = req.params;
-  const filePath = path.join(storageConfig.uploadsPath, filename);
+// List all uploaded files
+router.get('/', fileController.listFiles);
 
-  // Check if file exists
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'File not found' });
-  }
+// Serve uploaded file by filename
+router.get('/:filename', fileController.getFile);
 
-  // Send the file
-  res.sendFile(filePath);
-});
+// Delete uploaded file by filename
+router.delete('/:filename', fileController.deleteFile);
 
 module.exports = router;

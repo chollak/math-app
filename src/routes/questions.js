@@ -12,4 +12,10 @@ router.get('/', questionController.getAllQuestions);
 // Get specific question by ID
 router.get('/:id', questionController.getQuestionById);
 
+// Update question by ID
+router.put('/:id', uploadPhotos, questionController.updateQuestion);
+
+// Delete question by ID
+router.delete('/:id', questionController.deleteQuestion);
+
 module.exports = router;

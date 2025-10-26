@@ -1,5 +1,6 @@
 const Question = require('../models/Question');
 const AnswerOption = require('../models/AnswerOption');
+const database = require('../config/database');
 
 const questionController = {
   // Create a new question with options and photos
@@ -219,6 +220,167 @@ const questionController = {
         });
       });
     });
+  },
+
+  // Update question by ID
+  updateQuestion: (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({ error: 'Valid question ID is required' });
+      }
+
+      const {
+        question_ru,
+        question_kz,
+        question,
+        language,
+        answer,
+        level,
+        context,
+        context_title,
+        topic,
+        options
+      } = req.body;
+
+      // Parse options if it's a JSON string
+      let parsedOptions;
+      try {
+        parsedOptions = typeof options === 'string' ? JSON.parse(options) : options;
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid options format' });
+      }
+
+      // Determine question text and language
+      let finalQuestionRu = question_ru;
+      let finalQuestionKz = question_kz;
+      let finalLanguage = language || 'ru';
+
+      // Support new format: question + language
+      if (question && language) {
+        if (language === 'kz') {
+          finalQuestionKz = question;
+        } else {
+          finalQuestionRu = question;
+        }
+      }
+
+      // Validate language field
+      if (language && !['ru', 'kz'].includes(language)) {
+        return res.status(400).json({ error: 'Language must be "ru" or "kz"' });
+      }
+
+      // Handle uploaded photos
+      const photos = [];
+      if (req.files) {
+        ['photo1', 'photo2', 'photo3'].forEach(fieldName => {
+          if (req.files[fieldName] && req.files[fieldName][0]) {
+            photos.push(req.files[fieldName][0].filename);
+          }
+        });
+        
+        if (req.files.photos) {
+          req.files.photos.forEach(file => {
+            photos.push(file.filename);
+          });
+        }
+      }
+
+      // Parse context_id if provided
+      const context_id = req.body.context_id ? parseInt(req.body.context_id) : null;
+
+      // Prepare question data
+      const questionData = {
+        question_ru: finalQuestionRu || null,
+        question_kz: finalQuestionKz || null,
+        language: finalLanguage,
+        answer,
+        level: level ? parseInt(level) : null,
+        topic: topic || null,
+        photos: photos.length > 0 ? photos : undefined, // Keep existing photos if no new ones
+        context_id
+      };
+
+      // Update question
+      Question.update(parseInt(id), questionData, (err, updatedQuestion) => {
+        if (err) {
+          console.error('Error updating question:', err);
+          if (err.message === 'Question not found') {
+            return res.status(404).json({ error: 'Question not found' });
+          }
+          return res.status(500).json({ error: 'Failed to update question' });
+        }
+
+        // Update answer options if provided
+        if (parsedOptions && Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+          if (parsedOptions.length > 13) {
+            return res.status(400).json({ error: 'Maximum 13 answer options allowed' });
+          }
+
+          // Delete existing options first
+          const deleteOptionsSql = 'DELETE FROM answer_options WHERE question_id = ?';
+          database.db.run(deleteOptionsSql, [parseInt(id)], (err) => {
+            if (err) {
+              console.error('Error deleting old options:', err);
+              return res.status(500).json({ error: 'Failed to update answer options' });
+            }
+
+            // Create new options
+            const language = updatedQuestion.language || 'ru';
+            AnswerOption.createBatch(parseInt(id), parsedOptions, language, (err, createdOptions) => {
+              if (err) {
+                console.error('Error creating new options:', err);
+                return res.status(500).json({ error: 'Failed to create new answer options' });
+              }
+
+              // Return updated question with options
+              res.json({
+                ...updatedQuestion,
+                message: 'Question updated successfully'
+              });
+            });
+          });
+        } else {
+          // No options to update, return question
+          res.json({
+            ...updatedQuestion,
+            message: 'Question updated successfully'
+          });
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in updateQuestion:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+
+  // Delete question by ID
+  deleteQuestion: (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({ error: 'Valid question ID is required' });
+      }
+
+      Question.delete(parseInt(id), (err, result) => {
+        if (err) {
+          console.error('Error deleting question:', err);
+          if (err.message === 'Question not found') {
+            return res.status(404).json({ error: 'Question not found' });
+          }
+          return res.status(500).json({ error: 'Failed to delete question' });
+        }
+
+        res.json(result);
+      });
+
+    } catch (error) {
+      console.error('Error in deleteQuestion:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 };
 

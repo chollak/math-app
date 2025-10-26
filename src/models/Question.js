@@ -216,6 +216,77 @@ class Question {
       }
     });
   }
+
+  static update(id, questionData, callback) {
+    const {
+      question_ru,
+      question_kz,
+      language,
+      answer,
+      level,
+      topic,
+      photos,
+      context_id
+    } = questionData;
+
+    const sql = `
+      UPDATE questions 
+      SET question_ru = ?, 
+          question_kz = ?, 
+          language = ?, 
+          answer = ?, 
+          level = ?, 
+          topic = ?, 
+          photos = ?, 
+          context_id = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+
+    const photosJson = JSON.stringify(photos || []);
+
+    database.db.run(sql, [
+      question_ru, question_kz, language || 'ru', answer, level, topic, photosJson, context_id, id
+    ], function(err) {
+      if (err) {
+        callback(err, null);
+      } else if (this.changes === 0) {
+        callback(new Error('Question not found'), null);
+      } else {
+        // Get updated question
+        Question.findById(id, callback);
+      }
+    });
+  }
+
+  static delete(id, callback) {
+    // First check if question exists
+    Question.findById(id, (err, question) => {
+      if (err) {
+        callback(err, null);
+        return;
+      }
+      if (!question) {
+        callback(new Error('Question not found'), null);
+        return;
+      }
+
+      // Delete question (cascade will handle answer_options and suboptions)
+      const sql = 'DELETE FROM questions WHERE id = ?';
+      
+      database.db.run(sql, [id], function(err) {
+        if (err) {
+          callback(err, null);
+        } else {
+          callback(null, { 
+            id: id, 
+            deleted: true, 
+            message: 'Question deleted successfully' 
+          });
+        }
+      });
+    });
+  }
 }
 
 module.exports = Question;
