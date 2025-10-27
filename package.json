@@ -14,6 +14,7 @@
     "postman:generate": "node postman/scripts/generate-postman.js",
     "postman:test": "newman run postman/collections/math-app-api.postman_collection.json -e postman/environments/local.postman_environment.json",
     "postman:test-prod": "newman run postman/collections/math-app-api.postman_collection.json -e postman/environments/production.postman_environment.json",
+    "setup:hooks": "bash scripts/install-hooks.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
