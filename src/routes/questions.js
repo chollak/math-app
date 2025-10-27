@@ -6,7 +6,7 @@ const { uploadPhotos } = require('../middleware/upload');
 // Create a new question with photos and options
 router.post('/', uploadPhotos, questionController.createQuestion);
 
-// Get all questions
+// Get all questions with optional filtering
 router.get('/', questionController.getAllQuestions);
 
 // Get specific question by ID
