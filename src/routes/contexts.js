@@ -6,7 +6,7 @@ const { uploadPhotos } = require('../middleware/upload');
 // Create a new context with photos
 router.post('/', uploadPhotos, contextController.createContext);
 
-// Get all contexts
+// Get all contexts with pagination support
 router.get('/', contextController.getAllContexts);
 
 // Get specific context by ID
