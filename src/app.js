@@ -13,6 +13,7 @@ const fileRoutes = require('./routes/files');
 const adminRoutes = require('./routes/admin');
 const examRoutes = require('./routes/exams');
 const userRoutes = require('./routes/users');
+const appVersionRoutes = require('./routes/app-version');
 const asyncHandler = require('./middleware/asyncHandler');
 
 // Initialize database
@@ -47,6 +48,7 @@ app.use('/api/contexts', contextRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/app-version', appVersionRoutes);
 app.use('/admin', adminRoutes);
 
 // Configuration endpoint for frontend
@@ -115,6 +117,10 @@ app.get('/', (req, res) => {
       // Users/Stats (NEW)
       'GET /api/users/:deviceId/stats': 'Get statistics for a device/user',
 
+      // App Version (Force Update)
+      'GET /api/app-version': 'Check app version and force update requirements',
+      'GET /api/app-version?platform=ios': 'Check version for specific platform (ios/android/all)',
+
       // Files
       'GET /api/files/:filename': 'Get uploaded image files',
 
@@ -125,7 +131,9 @@ app.get('/', (req, res) => {
       // Admin
       'GET /admin/export?token=': 'Export database (admin only)',
       'GET /admin/stats?token=': 'Database statistics (admin only)',
-      'GET /admin/health?token=': 'Detailed health check (admin only)'
+      'GET /admin/health?token=': 'Detailed health check (admin only)',
+      'GET /admin/app-version?token=': 'Get app version settings (admin only)',
+      'PUT /admin/app-version?token=': 'Update app version settings (admin only)'
     }
   });
 });

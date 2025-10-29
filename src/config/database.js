@@ -228,8 +228,23 @@ function initializeTables() {
       )
     `;
 
+    // Create app_versions table for mobile app force update
+    const createAppVersionsTable = `
+      CREATE TABLE IF NOT EXISTS app_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        platform TEXT NOT NULL UNIQUE,
+        min_version TEXT NOT NULL,
+        latest_version TEXT NOT NULL,
+        update_url_ios TEXT DEFAULT '',
+        update_url_android TEXT DEFAULT '',
+        force_update BOOLEAN DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+
     let tablesCreated = 0;
-    const totalTables = 6;
+    const totalTables = 7;
     let hasError = false;
 
     function checkCompletion() {
@@ -307,6 +322,17 @@ function initializeTables() {
         reject(err);
       } else {
         console.log('Exam questions table ready');
+        checkCompletion();
+      }
+    });
+
+    db.run(createAppVersionsTable, (err) => {
+      if (err) {
+        console.error('Error creating app_versions table:', err.message);
+        hasError = true;
+        reject(err);
+      } else {
+        console.log('App versions table ready');
         checkCompletion();
       }
     });

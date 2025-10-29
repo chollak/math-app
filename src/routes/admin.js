@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { exportDatabase } = require('../../scripts/export-database');
 const database = require('../config/database');
+const AppVersion = require('../models/AppVersion');
 
 // Admin authentication middleware (simple token-based)
 const adminAuth = (req, res, next) => {
@@ -188,6 +189,67 @@ router.delete('/clear-all', adminAuth, (req, res) => {
           });
         }
       }
+    });
+  });
+});
+
+// Get current app version settings
+router.get('/app-version', adminAuth, (req, res) => {
+  const { platform } = req.query;
+
+  if (platform) {
+    AppVersion.getCurrent(platform, (err, versionInfo) => {
+      if (err) {
+        console.error('❌ Admin: Error fetching app version:', err);
+        return res.status(500).json({ error: 'Failed to fetch version information' });
+      }
+      res.json(versionInfo);
+    });
+  } else {
+    AppVersion.getAll((err, versions) => {
+      if (err) {
+        console.error('❌ Admin: Error fetching app versions:', err);
+        return res.status(500).json({ error: 'Failed to fetch version information' });
+      }
+      res.json(versions);
+    });
+  }
+});
+
+// Update app version settings
+router.put('/app-version', adminAuth, (req, res) => {
+  const versionData = req.body;
+
+  // Validate required fields
+  if (!versionData.min_version || !versionData.latest_version) {
+    return res.status(400).json({
+      error: 'Missing required fields: min_version and latest_version are required'
+    });
+  }
+
+  // Validate version format (basic semver check)
+  const versionRegex = /^\d+\.\d+\.\d+$/;
+  if (!versionRegex.test(versionData.min_version) || !versionRegex.test(versionData.latest_version)) {
+    return res.status(400).json({
+      error: 'Invalid version format. Use semantic versioning (e.g., 1.0.0)'
+    });
+  }
+
+  console.log('🔧 Admin: Updating app version:', versionData);
+
+  AppVersion.upsert(versionData, (err, result) => {
+    if (err) {
+      console.error('❌ Admin: Error updating app version:', err);
+      return res.status(500).json({
+        error: 'Failed to update version information',
+        details: err.message
+      });
+    }
+
+    console.log('✅ Admin: App version updated successfully');
+    res.json({
+      message: 'App version updated successfully',
+      data: result
     });
   });
 });
