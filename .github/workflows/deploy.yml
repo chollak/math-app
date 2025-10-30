@@ -16,5 +16,16 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
-            git pull
-            bash scripts/deployment/deploy.sh
+            echo "🔄 Updating code from GitHub..."
+            
+            # Force sync with GitHub main branch
+            git fetch origin || { echo "❌ Failed to fetch from origin"; exit 1; }
+            git reset --hard origin/main || { echo "❌ Failed to reset to origin/main"; exit 1; }
+            
+            echo "✅ Code updated successfully"
+            echo "📦 Starting deployment..."
+            
+            # Run deployment script
+            bash scripts/deployment/deploy.sh || { echo "❌ Deployment failed"; exit 1; }
+            
+            echo "🚀 Deployment completed successfully!"
