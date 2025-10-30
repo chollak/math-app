@@ -89,6 +89,86 @@ pm.test("Response has correct Content-Type", function () {
           ]
         },
         {
+          name: "Get Russian Questions",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/questions?language=ru",
+              host: ["{{base_url}}"],
+              path: ["api", "questions"],
+              query: [
+                {
+                  key: "language",
+                  value: "ru"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Only Russian questions returned', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('ru');",
+                  "            pm.expect(question).to.have.property('question');",
+                  "            pm.expect(question).to.not.have.property('question_kz');",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Kazakh Questions",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/questions?language=kz",
+              host: ["{{base_url}}"],
+              path: ["api", "questions"],
+              query: [
+                {
+                  key: "language",
+                  value: "kz"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Only Kazakh questions returned', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('kz');",
+                  "            pm.expect(question).to.have.property('question');",
+                  "            pm.expect(question).to.not.have.property('question_ru');",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           name: "Create Question (Simple)",
           request: {
             method: "POST",
@@ -508,7 +588,8 @@ pm.test("Response has correct Content-Type", function () {
                 deviceId: "{{device_id}}",
                 questionCount: 5,
                 filters: {
-                  topic: "ALG"
+                  topic: "ALG",
+                  language: "ru"
                 }
               }, null, 2)
             },
@@ -532,6 +613,49 @@ pm.test("Response has correct Content-Type", function () {
                   "    ",
                   "    // Save exam ID for subsequent requests",
                   "    pm.collectionVariables.set('exam_id', response.examId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Start Kazakh Exam",
+          request: {
+            method: "POST",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                deviceId: "{{device_id}}",
+                questionCount: 5,
+                filters: {
+                  language: "kz"
+                }
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/exams/start",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "start"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Kazakh exam started successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('examId');",
+                  "    pm.expect(response).to.have.property('totalQuestions');",
                   "});"
                 ]
               }

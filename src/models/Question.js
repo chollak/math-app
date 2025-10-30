@@ -42,8 +42,14 @@ class Question {
     });
   }
 
-  static findAll(callback) {
-    const sql = `
+  static findAll(language = null, callback) {
+    // Handle case where language is actually the callback (backward compatibility)
+    if (typeof language === 'function') {
+      callback = language;
+      language = null;
+    }
+
+    let sql = `
       SELECT q.*, 
              c.text as context_text,
              c.title as context_title,
@@ -58,11 +64,22 @@ class Question {
       FROM questions q
       LEFT JOIN contexts c ON q.context_id = c.id
       LEFT JOIN answer_options ao ON q.id = ao.question_id
+    `;
+
+    const params = [];
+    
+    // Add language filter if specified
+    if (language && (language === 'ru' || language === 'kz')) {
+      sql += ` WHERE q.language = ?`;
+      params.push(language);
+    }
+    
+    sql += `
       GROUP BY q.id
       ORDER BY q.created_at DESC
     `;
 
-    database.db.all(sql, [], (err, rows) => {
+    database.db.all(sql, params, (err, rows) => {
       if (err) {
         callback(err, null);
       } else {
@@ -119,8 +136,9 @@ class Question {
           
           // Transform data to new format
           const questions = rows.map(row => {
-            const language = row.language || 'ru';
-            const questionText = language === 'kz' ? row.question_kz : row.question_ru;
+            // Use the requested language filter or fallback to question's language
+            const questionLanguage = language || row.language || 'ru';
+            const questionText = questionLanguage === 'kz' ? row.question_kz : row.question_ru;
             
             // Parse photos
             const photos = JSON.parse(row.photos || '[]');
@@ -128,7 +146,7 @@ class Question {
             // Get options for this question
             const questionOpts = questionOptions[row.id] || {};
             const options = Object.values(questionOpts).map(opt => {
-              const optionText = language === 'kz' ? opt.option_text_kz : opt.option_text_ru;
+              const optionText = questionLanguage === 'kz' ? opt.option_text_kz : opt.option_text_ru;
               
               if (opt.suboptions && opt.suboptions.length > 0) {
                 // Return option with suboptions

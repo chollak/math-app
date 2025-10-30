@@ -24,6 +24,14 @@ async function startExam(req, res) {
       });
     }
 
+    // Validate language parameter
+    const language = filters.language || req.query.language;
+    if (language && language !== 'ru' && language !== 'kz') {
+      return res.status(400).json({
+        error: 'Invalid language parameter. Must be "ru" or "kz"'
+      });
+    }
+
     // Validate questionCount
     const questionCountNum = parseInt(question_count);
     if (isNaN(questionCountNum) || questionCountNum <= 0 || questionCountNum > 200) {
@@ -33,8 +41,9 @@ async function startExam(req, res) {
     }
 
     // Get all available questions (convert callback to Promise)
+    // Support language filtering for exams
     const allQuestions = await new Promise((resolve, reject) => {
-      Question.findAll((err, questions) => {
+      Question.findAll(language, (err, questions) => {
         if (err) reject(err);
         else resolve(questions || []);
       });
