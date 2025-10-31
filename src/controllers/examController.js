@@ -5,6 +5,7 @@ const AnswerOption = require('../models/AnswerOption');
 const Context = require('../models/Context');
 const { calculatePoints, getMaxPoints, parseAnswers } = require('../utils/scoringLogic');
 const { keysToCamel, keysToSnake } = require('../utils/caseConverter');
+const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
 
 /**
  * Start a new exam
@@ -24,12 +25,17 @@ async function startExam(req, res) {
       });
     }
 
-    // Validate language parameter
-    const language = filters.language || req.query.language;
-    if (language && language !== 'ru' && language !== 'kz') {
-      return res.status(400).json({
-        error: 'Invalid language parameter. Must be "ru" or "kz"'
-      });
+    // Get language from headers (preferred), filters, or query parameters
+    const language = getValidatedLanguage(req, filters);
+    
+    // Check for invalid language that was explicitly provided
+    const rawLanguage = req.headers['accept-language'] || 
+                       req.headers['x-app-language'] || 
+                       req.query.language ||
+                       filters.language;
+    
+    if (rawLanguage && !language) {
+      return res.status(400).json(createLanguageError(rawLanguage));
     }
 
     // Validate questionCount

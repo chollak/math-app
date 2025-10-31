@@ -92,17 +92,17 @@ pm.test("Response has correct Content-Type", function () {
           name: "Get Russian Questions",
           request: {
             method: "GET",
-            header: [],
+            header: [
+              {
+                key: "Accept-Language",
+                value: "ru",
+                type: "text"
+              }
+            ],
             url: {
-              raw: "{{base_url}}/api/questions?language=ru",
+              raw: "{{base_url}}/api/questions",
               host: ["{{base_url}}"],
-              path: ["api", "questions"],
-              query: [
-                {
-                  key: "language",
-                  value: "ru"
-                }
-              ]
+              path: ["api", "questions"]
             }
           },
           event: [
@@ -112,7 +112,7 @@ pm.test("Response has correct Content-Type", function () {
                 exec: [
                   this.globalTests,
                   "",
-                  "pm.test('Only Russian questions returned', function () {",
+                  "pm.test('Only Russian questions returned (via Accept-Language header)', function () {",
                   "    const response = pm.response.json();",
                   "    pm.expect(response).to.be.an('array');",
                   "    if (response.length > 0) {",
@@ -122,6 +122,10 @@ pm.test("Response has correct Content-Type", function () {
                   "            pm.expect(question).to.not.have.property('question_kz');",
                   "        });",
                   "    }",
+                  "});",
+                  "",
+                  "pm.test('Request sent Accept-Language header', function () {",
+                  "    pm.expect(pm.request.headers.get('Accept-Language')).to.equal('ru');",
                   "});"
                 ]
               }
@@ -132,15 +136,60 @@ pm.test("Response has correct Content-Type", function () {
           name: "Get Kazakh Questions",
           request: {
             method: "GET",
+            header: [
+              {
+                key: "X-App-Language",
+                value: "kz",
+                type: "text"
+              }
+            ],
+            url: {
+              raw: "{{base_url}}/api/questions",
+              host: ["{{base_url}}"],
+              path: ["api", "questions"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Only Kazakh questions returned (via X-App-Language header)', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('kz');",
+                  "            pm.expect(question).to.have.property('question');",
+                  "            pm.expect(question).to.not.have.property('question_ru');",
+                  "        });",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Request sent X-App-Language header', function () {",
+                  "    pm.expect(pm.request.headers.get('X-App-Language')).to.equal('kz');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Questions (Backward Compatibility)",
+          request: {
+            method: "GET",
             header: [],
             url: {
-              raw: "{{base_url}}/api/questions?language=kz",
+              raw: "{{base_url}}/api/questions?language=ru",
               host: ["{{base_url}}"],
               path: ["api", "questions"],
               query: [
                 {
                   key: "language",
-                  value: "kz"
+                  value: "ru",
+                  description: "Backward compatibility - query parameter still works"
                 }
               ]
             }
@@ -152,14 +201,12 @@ pm.test("Response has correct Content-Type", function () {
                 exec: [
                   this.globalTests,
                   "",
-                  "pm.test('Only Kazakh questions returned', function () {",
+                  "pm.test('Backward compatibility: query parameter works', function () {",
                   "    const response = pm.response.json();",
                   "    pm.expect(response).to.be.an('array');",
                   "    if (response.length > 0) {",
                   "        response.forEach(question => {",
-                  "            pm.expect(question.language).to.equal('kz');",
-                  "            pm.expect(question).to.have.property('question');",
-                  "            pm.expect(question).to.not.have.property('question_ru');",
+                  "            pm.expect(question.language).to.equal('ru');",
                   "        });",
                   "    }",
                   "});"
@@ -580,6 +627,11 @@ pm.test("Response has correct Content-Type", function () {
               {
                 key: "Content-Type",
                 value: "application/json"
+              },
+              {
+                key: "Accept-Language",
+                value: "ru",
+                type: "text"
               }
             ],
             body: {
@@ -588,8 +640,7 @@ pm.test("Response has correct Content-Type", function () {
                 deviceId: "{{device_id}}",
                 questionCount: 5,
                 filters: {
-                  topic: "ALG",
-                  language: "ru"
+                  topic: "ALG"
                 }
               }, null, 2)
             },
@@ -627,6 +678,11 @@ pm.test("Response has correct Content-Type", function () {
               {
                 key: "Content-Type",
                 value: "application/json"
+              },
+              {
+                key: "X-App-Language",
+                value: "kz",
+                type: "text"
               }
             ],
             body: {
@@ -634,9 +690,7 @@ pm.test("Response has correct Content-Type", function () {
               raw: JSON.stringify({
                 deviceId: "{{device_id}}",
                 questionCount: 5,
-                filters: {
-                  language: "kz"
-                }
+                filters: {}
               }, null, 2)
             },
             url: {

@@ -71,6 +71,104 @@
           "name": "Get Russian Questions",
           "request": {
             "method": "GET",
+            "header": [
+              {
+                "key": "Accept-Language",
+                "value": "ru",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
+                  "",
+                  "pm.test('Only Russian questions returned (via Accept-Language header)', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('ru');",
+                  "            pm.expect(question).to.have.property('question');",
+                  "            pm.expect(question).to.not.have.property('question_kz');",
+                  "        });",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Request sent Accept-Language header', function () {",
+                  "    pm.expect(pm.request.headers.get('Accept-Language')).to.equal('ru');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Kazakh Questions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-App-Language",
+                "value": "kz",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
+                  "",
+                  "pm.test('Only Kazakh questions returned (via X-App-Language header)', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('kz');",
+                  "            pm.expect(question).to.have.property('question');",
+                  "            pm.expect(question).to.not.have.property('question_ru');",
+                  "        });",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Request sent X-App-Language header', function () {",
+                  "    pm.expect(pm.request.headers.get('X-App-Language')).to.equal('kz');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Questions (Backward Compatibility)",
+          "request": {
+            "method": "GET",
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/questions?language=ru",
@@ -84,7 +182,8 @@
               "query": [
                 {
                   "key": "language",
-                  "value": "ru"
+                  "value": "ru",
+                  "description": "Backward compatibility - query parameter still works"
                 }
               ]
             }
@@ -96,59 +195,12 @@
                 "exec": [
                   "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
                   "",
-                  "pm.test('Only Russian questions returned', function () {",
+                  "pm.test('Backward compatibility: query parameter works', function () {",
                   "    const response = pm.response.json();",
                   "    pm.expect(response).to.be.an('array');",
                   "    if (response.length > 0) {",
                   "        response.forEach(question => {",
                   "            pm.expect(question.language).to.equal('ru');",
-                  "            pm.expect(question).to.have.property('question');",
-                  "            pm.expect(question).to.not.have.property('question_kz');",
-                  "        });",
-                  "    }",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get Kazakh Questions",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/questions?language=kz",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "questions"
-              ],
-              "query": [
-                {
-                  "key": "language",
-                  "value": "kz"
-                }
-              ]
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
-                  "",
-                  "pm.test('Only Kazakh questions returned', function () {",
-                  "    const response = pm.response.json();",
-                  "    pm.expect(response).to.be.an('array');",
-                  "    if (response.length > 0) {",
-                  "        response.forEach(question => {",
-                  "            pm.expect(question.language).to.equal('kz');",
-                  "            pm.expect(question).to.have.property('question');",
-                  "            pm.expect(question).to.not.have.property('question_ru');",
                   "        });",
                   "    }",
                   "});"
@@ -582,11 +634,16 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "ru",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 5,\n  \"filters\": {\n    \"topic\": \"ALG\",\n    \"language\": \"ru\"\n  }\n}"
+              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 5,\n  \"filters\": {\n    \"topic\": \"ALG\"\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/exams/start",
@@ -628,11 +685,16 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-App-Language",
+                "value": "kz",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 5,\n  \"filters\": {\n    \"language\": \"kz\"\n  }\n}"
+              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 5,\n  \"filters\": {}\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/exams/start",

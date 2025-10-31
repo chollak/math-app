@@ -1,6 +1,7 @@
 const Question = require('../models/Question');
 const AnswerOption = require('../models/AnswerOption');
 const database = require('../config/database');
+const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
 
 const questionController = {
   // Create a new question with options and photos
@@ -161,13 +162,16 @@ const questionController = {
 
   // Get all questions with their options
   getAllQuestions: (req, res) => {
-    const { language } = req.query;
+    // Get language from headers (preferred) or query parameters (backward compatibility)
+    const language = getValidatedLanguage(req);
     
-    // Validate language parameter
-    if (language && language !== 'ru' && language !== 'kz') {
-      return res.status(400).json({ 
-        error: 'Invalid language parameter. Must be "ru" or "kz"' 
-      });
+    // Check for invalid language that was explicitly provided
+    const rawLanguage = req.headers['accept-language'] || 
+                       req.headers['x-app-language'] || 
+                       req.query.language;
+    
+    if (rawLanguage && !language) {
+      return res.status(400).json(createLanguageError(rawLanguage));
     }
 
     Question.findAll(language, (err, questions) => {
