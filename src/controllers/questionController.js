@@ -1,6 +1,7 @@
 const Question = require('../models/Question');
 const AnswerOption = require('../models/AnswerOption');
 const database = require('../config/database');
+const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
 
 const questionController = {
   // Create a new question with options and photos
@@ -161,13 +162,58 @@ const questionController = {
 
   // Get all questions with their options
   getAllQuestions: (req, res) => {
-    Question.findAll((err, questions) => {
+    // Get language from headers (preferred) or query parameters (backward compatibility)
+    const language = getValidatedLanguage(req);
+    
+    // Check for invalid language that was explicitly provided
+    const rawLanguage = req.headers['accept-language'] || 
+                       req.headers['x-app-language'] || 
+                       req.query.language;
+    
+    if (rawLanguage && !language) {
+      return res.status(400).json(createLanguageError(rawLanguage));
+    }
+
+    Question.findAll(language, (err, questions) => {
       if (err) {
         console.error('Error fetching questions:', err);
         return res.status(500).json({ error: 'Failed to fetch questions' });
       }
 
-      res.json(questions);
+      // Transform questions to return only relevant language data
+      const transformedQuestions = questions.map(question => {
+        const transformed = {
+          id: question.id,
+          answer: question.answer,
+          level: question.level,
+          topic: question.topic,
+          language: question.language,
+          created_at: question.created_at,
+          updated_at: question.updated_at,
+          context_id: question.context_id,
+          context_text: question.context_text,
+          context_title: question.context_title,
+          context_photos: question.context_photos,
+          photos: question.photos,
+          options: question.options
+        };
+
+        // Add question text based on language
+        if (language === 'kz') {
+          transformed.question = question.question_kz || question.question_ru;
+        } else if (language === 'ru') {
+          transformed.question = question.question_ru;
+        } else {
+          // No language filter - return both
+          transformed.question_ru = question.question_ru;
+          transformed.question_kz = question.question_kz;
+          transformed.question = question.question_ru; // Default fallback
+        }
+
+        return transformed;
+      });
+
+      res.json(transformedQuestions);
     });
   },
 

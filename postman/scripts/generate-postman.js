@@ -89,6 +89,133 @@ pm.test("Response has correct Content-Type", function () {
           ]
         },
         {
+          name: "Get Russian Questions",
+          request: {
+            method: "GET",
+            header: [
+              {
+                key: "Accept-Language",
+                value: "ru",
+                type: "text"
+              }
+            ],
+            url: {
+              raw: "{{base_url}}/api/questions",
+              host: ["{{base_url}}"],
+              path: ["api", "questions"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Only Russian questions returned (via Accept-Language header)', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('ru');",
+                  "            pm.expect(question).to.have.property('question');",
+                  "            pm.expect(question).to.not.have.property('question_kz');",
+                  "        });",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Request sent Accept-Language header', function () {",
+                  "    pm.expect(pm.request.headers.get('Accept-Language')).to.equal('ru');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Kazakh Questions",
+          request: {
+            method: "GET",
+            header: [
+              {
+                key: "X-App-Language",
+                value: "kz",
+                type: "text"
+              }
+            ],
+            url: {
+              raw: "{{base_url}}/api/questions",
+              host: ["{{base_url}}"],
+              path: ["api", "questions"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Only Kazakh questions returned (via X-App-Language header)', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('kz');",
+                  "            pm.expect(question).to.have.property('question');",
+                  "            pm.expect(question).to.not.have.property('question_ru');",
+                  "        });",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Request sent X-App-Language header', function () {",
+                  "    pm.expect(pm.request.headers.get('X-App-Language')).to.equal('kz');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Questions (Backward Compatibility)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/questions?language=ru",
+              host: ["{{base_url}}"],
+              path: ["api", "questions"],
+              query: [
+                {
+                  key: "language",
+                  value: "ru",
+                  description: "Backward compatibility - query parameter still works"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Backward compatibility: query parameter works', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    if (response.length > 0) {",
+                  "        response.forEach(question => {",
+                  "            pm.expect(question.language).to.equal('ru');",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           name: "Create Question (Simple)",
           request: {
             method: "POST",
@@ -500,6 +627,11 @@ pm.test("Response has correct Content-Type", function () {
               {
                 key: "Content-Type",
                 value: "application/json"
+              },
+              {
+                key: "Accept-Language",
+                value: "ru",
+                type: "text"
               }
             ],
             body: {
@@ -532,6 +664,52 @@ pm.test("Response has correct Content-Type", function () {
                   "    ",
                   "    // Save exam ID for subsequent requests",
                   "    pm.collectionVariables.set('exam_id', response.examId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Start Kazakh Exam",
+          request: {
+            method: "POST",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              },
+              {
+                key: "X-App-Language",
+                value: "kz",
+                type: "text"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                deviceId: "{{device_id}}",
+                questionCount: 5,
+                filters: {}
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/exams/start",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "start"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Kazakh exam started successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('examId');",
+                  "    pm.expect(response).to.have.property('totalQuestions');",
                   "});"
                 ]
               }
