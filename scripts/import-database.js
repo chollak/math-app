@@ -12,7 +12,9 @@ const path = require('path');
 // Load environment variables
 require('dotenv').config();
 
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../database/database.sqlite');
+// Use storage configuration for consistent paths
+const storageConfig = require('../src/config/storage');
+const dbPath = storageConfig.databasePath;
 const inputPath = process.argv[2] || path.join(__dirname, '../backups/database-dump.sql');
 
 function importDatabase() {
