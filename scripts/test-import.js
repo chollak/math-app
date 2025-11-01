@@ -3,7 +3,7 @@ const path = require('path');
 
 // ТЕСТОВЫЙ СКРИПТ для проверки импорта на копии базы
 
-const QUESTIONS_FILE = path.join(__dirname, '../temp/questions.txt');
+const QUESTIONS_FILE = path.join(__dirname, 'questions-import.txt');
 
 function testQuestionsParsing() {
   console.log('🧪 Тестирование парсинга questions.txt...\n');

@@ -6,7 +6,7 @@ const sqlite3 = require('sqlite3').verbose();
 // Этот скрипт создает резервную копию базы перед импортом
 
 const BACKUP_DIR = path.join(__dirname, '../backups');
-const QUESTIONS_FILE = path.join(__dirname, '../temp/questions.txt');
+const QUESTIONS_FILE = path.join(__dirname, 'questions-import.txt');
 
 class SafeQuestionImporter {
   constructor(dbPath) {
