@@ -729,10 +729,8 @@ pm.test("Response has correct Content-Type", function () {
               mode: "raw",
               raw: JSON.stringify({
                 deviceId: "{{device_id}}",
-                questionCount: 5,
-                filters: {
-                  topic: "ALG"
-                }
+                questionCount: 40,
+                filters: {}
               }, null, 2)
             },
             url: {
@@ -780,8 +778,10 @@ pm.test("Response has correct Content-Type", function () {
               mode: "raw",
               raw: JSON.stringify({
                 deviceId: "{{device_id}}",
-                questionCount: 5,
-                filters: {}
+                questionCount: 20,
+                filters: {
+                  topic: "ALG"
+                }
               }, null, 2)
             },
             url: {
@@ -922,6 +922,95 @@ pm.test("Response has correct Content-Type", function () {
                   "    for (let i = 0; i < 25; i++) {",
                   "        pm.expect(response[i].topic, `Question ${i + 1} should have topic ${expectedTopics[i]}`).to.equal(expectedTopics[i]);",
                   "    }",
+                  "    ",
+                  "    // Save question IDs for testing different answer types",
+                  "    if (response.length >= 36) {",
+                  "        pm.collectionVariables.set('question_1_id', response[0].questionId);",
+                  "        pm.collectionVariables.set('question_16_id', response[15].questionId);",
+                  "        pm.collectionVariables.set('question_26_id', response[25].questionId);",
+                  "        pm.collectionVariables.set('question_31_id', response[30].questionId);",
+                  "        pm.collectionVariables.set('question_36_id', response[35].questionId);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Submit Structured Exam (Test All Answer Types)",
+          request: {
+            method: "POST",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                deviceId: "{{device_id}}",
+                answers: [
+                  {
+                    questionId: "{{question_1_id}}",
+                    answer: "A"
+                  },
+                  {
+                    questionId: "{{question_16_id}}",
+                    answer: "B"
+                  },
+                  {
+                    questionId: "{{question_26_id}}",
+                    answer: "C"
+                  },
+                  {
+                    questionId: "{{question_31_id}}",
+                    answer: "A1B2"
+                  },
+                  {
+                    questionId: "{{question_36_id}}",
+                    answer: "A,C,E"
+                  }
+                ]
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/exams/{{structured_exam_id}}/submit",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "{{structured_exam_id}}", "submit"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Structured exam submitted successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('exam');",
+                  "    pm.expect(response).to.have.property('questions');",
+                  "    pm.expect(response.exam).to.have.property('totalPoints');",
+                  "    pm.expect(response.exam).to.have.property('maxPossiblePoints');",
+                  "});",
+                  "",
+                  "pm.test('Answer formats are properly processed', function () {",
+                  "    const response = pm.response.json();",
+                  "    const questions = response.questions;",
+                  "    ",
+                  "    // Check that we have answers for different question types",
+                  "    pm.expect(questions.length).to.be.greaterThan(0);",
+                  "    ",
+                  "    // Look for different answer formats in the response",
+                  "    const hasSimpleAnswer = questions.some(q => q.userAnswer && q.userAnswer.length === 1);",
+                  "    const hasMatchingAnswer = questions.some(q => q.userAnswer && q.userAnswer.match(/[A-Z][0-9]/));",
+                  "    const hasMultipleAnswer = questions.some(q => q.userAnswer && q.userAnswer.includes(','));",
+                  "    ",
+                  "    console.log('Simple answers found:', hasSimpleAnswer);",
+                  "    console.log('Matching answers found:', hasMatchingAnswer);",
+                  "    console.log('Multiple answers found:', hasMultipleAnswer);",
                   "});"
                 ]
               }

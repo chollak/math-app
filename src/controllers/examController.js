@@ -4,6 +4,10 @@ const Question = require('../models/Question');
 const AnswerOption = require('../models/AnswerOption');
 const Context = require('../models/Context');
 const { calculatePoints, getMaxPoints, parseAnswers } = require('../utils/scoringLogic');
+const { 
+  calculateStructuredPoints, 
+  getMaxPointsForQuestion 
+} = require('../utils/structuredScoringLogic');
 const { keysToCamel, keysToSnake } = require('../utils/caseConverter');
 const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
 const { getExamStructure } = require('../config/examStructure');
@@ -19,7 +23,7 @@ async function startExam(req, res) {
   try {
     // Convert camelCase to snake_case for database
     const body = keysToSnake(req.body);
-    const { device_id, question_count = 45, filters = {} } = body;
+    const { device_id, question_count = 40, filters = {} } = body;
 
     // Validate deviceId
     if (!device_id) {
@@ -122,12 +126,21 @@ async function startExam(req, res) {
 
     // Create exam questions with correct answers and max points
     const examQuestions = selectedQuestions.map((q, index) => {
-      const correctAnswers = parseAnswers(q.answer);
-      const maxPoints = getMaxPoints(correctAnswers.length);
+      const order = index + 1;
+      const isStructured = questionCountNum === 40;
+      
+      // Use structured scoring for 40-question exams
+      let maxPoints;
+      if (isStructured) {
+        maxPoints = getMaxPointsForQuestion(order, true);
+      } else {
+        const correctAnswers = parseAnswers(q.answer);
+        maxPoints = getMaxPoints(correctAnswers.length);
+      }
 
       return {
         questionId: q.id,
-        order: index + 1,
+        order: order,
         correctAnswer: q.answer,
         maxPoints: maxPoints
       };
@@ -292,33 +305,50 @@ async function submitExam(req, res) {
       return res.status(400).json({ error: 'This exam has already been submitted' });
     }
 
-    // Get all exam questions to get correct answers
+    // Get all exam questions to get correct answers and question orders
     const examQuestions = await ExamQuestion.getByExamId(examId);
 
-    // Create a map of questionId -> correct answer
+    // Create maps for answer lookup
     const correctAnswersMap = {};
+    const questionOrderMap = {};
     examQuestions.forEach(eq => {
       correctAnswersMap[eq.question_id] = eq.correct_answer;
+      questionOrderMap[eq.question_id] = eq.question_order;
     });
+
+    // Determine if this is a structured exam
+    const isStructured = examQuestions.length === 40;
 
     // Calculate points for each answer
     const answersWithPoints = answers.map(a => {
       const correctAnswer = correctAnswersMap[a.question_id];
+      const questionOrder = questionOrderMap[a.question_id];
 
       if (!correctAnswer) {
         // Question not in this exam
         return null;
       }
 
-      const { pointsEarned, maxPoints } = calculatePoints(
-        correctAnswer,
-        a.answer || ''
-      );
+      // Use structured scoring for 40-question exams
+      let result;
+      if (isStructured && questionOrder) {
+        result = calculateStructuredPoints(
+          correctAnswer,
+          a.answer || '',
+          questionOrder,
+          true
+        );
+      } else {
+        result = calculatePoints(
+          correctAnswer,
+          a.answer || ''
+        );
+      }
 
       return {
         questionId: a.question_id,
         userAnswer: a.answer || '',
-        pointsEarned: pointsEarned
+        pointsEarned: result.pointsEarned
       };
     }).filter(a => a !== null);
 
