@@ -138,52 +138,61 @@ async function getExamQuestions(req, res) {
       return res.status(404).json({ error: 'Exam not found' });
     }
 
+    // Get language from headers (preferred) or query parameters
+    const language = getValidatedLanguage(req);
+    
+    // Check for invalid language that was explicitly provided
+    const rawLanguage = req.headers['accept-language'] || 
+                       req.headers['x-app-language'] || 
+                       req.query.language;
+    
+    if (rawLanguage && !language) {
+      return res.status(400).json(createLanguageError(rawLanguage));
+    }
+
     // Get all questions for this exam with full question data
     const examQuestions = await ExamQuestion.getAllWithQuestionData(examId);
 
-    // For each question, get answer options and context if needed
+    // For each question, get question details using unified format
     const questionsWithDetails = await Promise.all(
       examQuestions.map(async (eq) => {
-        // Get answer options (convert callback to Promise)
-        const options = await new Promise((resolve, reject) => {
-          AnswerOption.findByQuestionId(eq.question_id, (err, opts) => {
+        // Get full question data using unified Question.findById method
+        const questionData = await new Promise((resolve, reject) => {
+          Question.findById(eq.question_id, language, (err, question) => {
             if (err) reject(err);
-            else resolve(opts || []);
+            else resolve(question);
           });
         });
 
-        // Get context if exists (convert callback to Promise)
-        let context = null;
-        if (eq.context_id) {
-          context = await new Promise((resolve, reject) => {
-            Context.findById(eq.context_id, (err, ctx) => {
-              if (err) reject(err);
-              else resolve(ctx);
-            });
-          });
-        }
-
-        // Parse photos JSON
-        let photos = [];
-        try {
-          if (eq.photos) {
-            photos = JSON.parse(eq.photos);
-          }
-        } catch (e) {
-          photos = [];
+        if (!questionData) {
+          // Fallback to raw data if question not found
+          return {
+            order: eq.question_order,
+            question_id: eq.question_id,
+            question: eq.question_ru || eq.question_kz,
+            language: eq.language,
+            topic: eq.topic,
+            level: eq.level,
+            photos: [],
+            options: [],
+            context: null,
+            max_points: eq.max_points
+          };
         }
 
         return {
           order: eq.question_order,
           question_id: eq.question_id,
-          question_ru: eq.question_ru,
-          question_kz: eq.question_kz,
-          language: eq.language,
-          topic: eq.topic,
-          level: eq.level,
-          photos: photos,
-          options: options,
-          context: context,
+          question: questionData.question,
+          language: questionData.language,
+          topic: questionData.topic,
+          level: questionData.level,
+          photos: questionData.photos,
+          options: questionData.options,
+          context_id: questionData.context_id,
+          context_text: questionData.context_text,
+          context_title: questionData.context_title,
+          context_photos: questionData.context_photos,
           max_points: eq.max_points
         };
       })
@@ -279,21 +288,29 @@ async function submitExam(req, res) {
     // Get detailed results
     const detailedResults = await Exam.getDetailedResults(examId);
 
-    // Format detailed results for response
+    // Format detailed results for response - use unified question format
     const formattedResults = {
       exam: detailedResults.exam,
-      questions: detailedResults.questions.map(q => ({
-        question_id: q.question_id,
-        question_order: q.question_order,
-        user_answer: q.user_answer,
-        correct_answer: q.correct_answer,
-        points_earned: q.points_earned,
-        max_points: q.max_points,
-        question_ru: q.question_ru,
-        question_kz: q.question_kz,
-        topic: q.topic,
-        level: q.level
-      }))
+      questions: detailedResults.questions.map(q => {
+        // Use language-specific question text (consistent with other endpoints)
+        const questionLanguage = q.language || 'ru';
+        const questionText = questionLanguage === 'kz' ? 
+          (q.question_kz || q.question_ru) : 
+          (q.question_ru || q.question_kz);
+        
+        return {
+          question_id: q.question_id,
+          question_order: q.question_order,
+          question: questionText,
+          language: questionLanguage,
+          user_answer: q.user_answer,
+          correct_answer: q.correct_answer,
+          points_earned: q.points_earned,
+          max_points: q.max_points,
+          topic: q.topic,
+          level: q.level
+        };
+      })
     };
 
     // Convert to camelCase
