@@ -6,6 +6,9 @@ const Context = require('../models/Context');
 const { calculatePoints, getMaxPoints, parseAnswers } = require('../utils/scoringLogic');
 const { keysToCamel, keysToSnake } = require('../utils/caseConverter');
 const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
+const { getExamStructure } = require('../config/examStructure');
+const { selectStructuredQuestions } = require('../utils/questionSelector');
+const { generateReadinessReport } = require('../utils/examValidator');
 
 /**
  * Start a new exam
@@ -46,41 +49,73 @@ async function startExam(req, res) {
       });
     }
 
-    // Get all available questions (convert callback to Promise)
-    // Support language filtering for exams
-    const allQuestions = await new Promise((resolve, reject) => {
-      Question.findAll(language, (err, questions) => {
-        if (err) reject(err);
-        else resolve(questions || []);
+    let selectedQuestions = [];
+    let selectionIssues = [];
+    let contextUsed = null;
+
+    // Check if this is a structured 40-question exam
+    if (questionCountNum === 40) {
+      console.log('Generating structured 40-question exam...');
+      
+      // Use structured question selection
+      const examStructure = getExamStructure();
+      const selectionResult = await selectStructuredQuestions(examStructure, language);
+      
+      selectedQuestions = selectionResult.questions.map(item => item.question);
+      selectionIssues = selectionResult.issues;
+      contextUsed = selectionResult.contextUsed;
+      
+      // Log any issues but continue with available questions
+      if (selectionIssues.length > 0) {
+        console.warn('Exam generation issues:', selectionIssues);
+      }
+      
+      // If we couldn't get enough questions, fallback to random selection
+      if (selectedQuestions.length < 30) { // Allow some flexibility
+        console.warn(`Only ${selectedQuestions.length} structured questions found, falling back to random selection`);
+        selectedQuestions = [];
+      }
+    }
+
+    // Fallback to random selection for non-40 question exams or if structured selection failed
+    if (selectedQuestions.length === 0) {
+      console.log('Using random question selection...');
+      
+      // Get all available questions (convert callback to Promise)
+      const allQuestions = await new Promise((resolve, reject) => {
+        Question.findAll(language, (err, questions) => {
+          if (err) reject(err);
+          else resolve(questions || []);
+        });
       });
-    });
 
-    if (allQuestions.length === 0) {
-      return res.status(400).json({
-        error: 'No questions available in the database'
-      });
+      if (allQuestions.length === 0) {
+        return res.status(400).json({
+          error: 'No questions available in the database'
+        });
+      }
+
+      // Apply filters if provided
+      let filteredQuestions = allQuestions;
+
+      if (filters.topic) {
+        filteredQuestions = filteredQuestions.filter(q => q.topic === filters.topic);
+      }
+
+      if (filters.level) {
+        filteredQuestions = filteredQuestions.filter(q => q.level === parseInt(filters.level));
+      }
+
+      if (filteredQuestions.length === 0) {
+        return res.status(400).json({
+          error: 'No questions match the specified filters'
+        });
+      }
+
+      // Shuffle and select random questions
+      const shuffled = filteredQuestions.sort(() => Math.random() - 0.5);
+      selectedQuestions = shuffled.slice(0, Math.min(questionCountNum, shuffled.length));
     }
-
-    // Apply filters if provided
-    let filteredQuestions = allQuestions;
-
-    if (filters.topic) {
-      filteredQuestions = filteredQuestions.filter(q => q.topic === filters.topic);
-    }
-
-    if (filters.level) {
-      filteredQuestions = filteredQuestions.filter(q => q.level === parseInt(filters.level));
-    }
-
-    if (filteredQuestions.length === 0) {
-      return res.status(400).json({
-        error: 'No questions match the specified filters'
-      });
-    }
-
-    // Shuffle and select random questions
-    const shuffled = filteredQuestions.sort(() => Math.random() - 0.5);
-    const selectedQuestions = shuffled.slice(0, Math.min(questionCountNum, shuffled.length));
 
     // Create exam
     const examId = await Exam.create(device_id, selectedQuestions.length);
@@ -103,15 +138,28 @@ async function startExam(req, res) {
     // Get exam details
     const exam = await Exam.getById(examId);
 
-    // Return response in camelCase
-    const response = keysToCamel({
+    // Prepare response data
+    const responseData = {
       exam_id: examId,
       device_id: device_id,
       total_questions: selectedQuestions.length,
       question_ids: selectedQuestions.map(q => q.id),
       started_at: exam.started_at,
-      status: exam.status
+      status: exam.status,
+      is_structured: questionCountNum === 40,
+      structure_issues: selectionIssues.length > 0 ? selectionIssues : undefined,
+      context_used: contextUsed ? contextUsed.id : undefined
+    };
+
+    // Remove undefined fields
+    Object.keys(responseData).forEach(key => {
+      if (responseData[key] === undefined) {
+        delete responseData[key];
+      }
     });
+
+    // Return response in camelCase
+    const response = keysToCamel(responseData);
 
     res.status(201).json(response);
   } catch (error) {
@@ -402,11 +450,43 @@ async function getUserStats(req, res) {
   }
 }
 
+/**
+ * Check exam readiness for structured 40-question exams
+ * GET /api/exams/readiness
+ */
+async function checkExamReadiness(req, res) {
+  try {
+    // Get language from query parameters or headers
+    const language = getValidatedLanguage(req);
+    
+    // Check for invalid language that was explicitly provided
+    const rawLanguage = req.headers['accept-language'] || 
+                       req.headers['x-app-language'] || 
+                       req.query.language;
+    
+    if (rawLanguage && !language) {
+      return res.status(400).json(createLanguageError(rawLanguage));
+    }
+
+    // Generate readiness report
+    const report = await generateReadinessReport(language);
+
+    // Convert to camelCase
+    const response = keysToCamel(report);
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error checking exam readiness:', error);
+    res.status(500).json({ error: 'Failed to check exam readiness' });
+  }
+}
+
 module.exports = {
   startExam,
   getExamQuestions,
   submitExam,
   getExamHistory,
   getExamDetails,
-  getUserStats
+  getUserStats,
+  checkExamReadiness
 };

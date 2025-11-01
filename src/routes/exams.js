@@ -4,6 +4,12 @@ const asyncHandler = require('../middleware/asyncHandler');
 const examController = require('../controllers/examController');
 
 /**
+ * GET /api/exams/readiness
+ * Check exam readiness for structured 40-question exams
+ */
+router.get('/readiness', asyncHandler(examController.checkExamReadiness));
+
+/**
  * POST /api/exams/start
  * Start a new exam
  * Body: { deviceId: string, questionCount: number, filters: { topic, level } }
