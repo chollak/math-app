@@ -2,11 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
-// ИМПОРТ ВОПРОСОВ ИЗ temp/output_clean.json
+// ИМПОРТ ВОПРОСОВ ИЗ scripts/output_clean.json
 // Специальный скрипт для импорта JSON формата с парами ru/kz вопросов
 
 const BACKUP_DIR = path.join(__dirname, '../backups');
-const JSON_FILE = path.join(__dirname, '../temp/output_clean.json');
+const JSON_FILE = path.join(__dirname, 'output_clean.json');
 
 class CleanJsonImporter {
   constructor(dbPath) {
@@ -333,6 +333,7 @@ async function main() {
   // Проверяем существование JSON файла
   if (!fs.existsSync(JSON_FILE)) {
     console.error(`❌ Файл ${JSON_FILE} не найден`);
+    console.error(`📍 Ожидаемый путь: scripts/output_clean.json`);
     process.exit(1);
   }
 

@@ -2,19 +2,26 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * Storage configuration for server and local environments
+ * Storage configuration for Docker, server and local environments
  * Manages file paths for database and uploads
  */
 
-// Get base storage path - detects server vs local environment
+// Get base storage path - detects Docker, server, or local environment
 function getStorageBasePath() {
-  // Priority: 1. Environment variable, 2. Server path, 3. Local development path
+  // Priority: 1. Environment variable, 2. Docker path, 3. Server path, 4. Local development path
   if (process.env.STORAGE_BASE_PATH) {
     console.log('🔧 Using environment variable for storage path');
     return process.env.STORAGE_BASE_PATH;
   }
   
-  // Server path (production deployment)
+  // Docker path (when running in container)
+  const dockerPath = '/app/database';
+  if (fs.existsSync(dockerPath)) {
+    console.log('🐳 Using Docker container storage path');
+    return dockerPath;
+  }
+  
+  // Server path (production deployment without Docker)
   const serverPath = path.join(__dirname, '../../data/database');
   if (fs.existsSync(serverPath)) {
     console.log('🖥️  Using server storage path');
@@ -31,7 +38,7 @@ const storageBasePath = getStorageBasePath();
 
 // Configure paths
 const config = {
-  // Base storage directory (server: data/database/, local: database/)
+  // Base storage directory (docker: /app/database/, server: data/database/, local: database/)
   basePath: storageBasePath,
   
   // Database file path
