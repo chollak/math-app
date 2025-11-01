@@ -2,46 +2,42 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * Storage configuration for Railway volume support
+ * Storage configuration for server and local environments
  * Manages file paths for database and uploads
  */
 
-// Get base storage path - same as database directory
+// Get base storage path - detects server vs local environment
 function getStorageBasePath() {
-  // Priority: 1. Environment variable, 2. Railway volume, 3. Default local path
+  // Priority: 1. Environment variable, 2. Server path, 3. Local development path
   if (process.env.STORAGE_BASE_PATH) {
+    console.log('🔧 Using environment variable for storage path');
     return process.env.STORAGE_BASE_PATH;
   }
   
-  // Railway volume path (when volume is mounted)
-  const railwayVolumePath = '/app/database';
-  if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
-    return process.env.RAILWAY_VOLUME_MOUNT_PATH;
-  }
-  
-  // Check if we're in Railway environment and volume exists
-  if (process.env.RAILWAY_ENVIRONMENT && fs.existsSync('/app/database')) {
-    console.log('🚂 Railway volume detected for storage');
-    return railwayVolumePath;
+  // Server path (production deployment)
+  const serverPath = path.join(__dirname, '../../data/database');
+  if (fs.existsSync(serverPath)) {
+    console.log('🖥️  Using server storage path');
+    return serverPath;
   }
   
   // Default local development path
-  const defaultPath = path.join(__dirname, '../../database');
+  const localPath = path.join(__dirname, '../../database');
   console.log('💻 Using local development storage path');
-  return defaultPath;
+  return localPath;
 }
 
 const storageBasePath = getStorageBasePath();
 
 // Configure paths
 const config = {
-  // Base storage directory (where volume is mounted)
+  // Base storage directory (server: data/database/, local: database/)
   basePath: storageBasePath,
   
   // Database file path
   databasePath: path.join(storageBasePath, 'database.sqlite'),
   
-  // Uploads directory (inside volume)
+  // Uploads directory (inside storage directory)
   uploadsPath: path.join(storageBasePath, 'uploads'),
   
   // Public images path (for web access)
@@ -76,6 +72,6 @@ console.log(`   Base path: ${config.basePath}`);
 console.log(`   Database: ${config.databasePath}`);
 console.log(`   Uploads: ${config.uploadsPath}`);
 console.log(`   Public images: ${config.publicImagesPath}`);
-console.log(`   Railway: ${process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No'}`);
+console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
 
 module.exports = config;
