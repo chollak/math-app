@@ -4,8 +4,15 @@ const Question = require('../models/Question');
 const AnswerOption = require('../models/AnswerOption');
 const Context = require('../models/Context');
 const { calculatePoints, getMaxPoints, parseAnswers } = require('../utils/scoringLogic');
+const { 
+  calculateStructuredPoints, 
+  getMaxPointsForQuestion 
+} = require('../utils/structuredScoringLogic');
 const { keysToCamel, keysToSnake } = require('../utils/caseConverter');
 const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
+const { getExamStructure } = require('../config/examStructure');
+const { selectStructuredQuestions } = require('../utils/questionSelector');
+const { generateReadinessReport } = require('../utils/examValidator');
 
 /**
  * Start a new exam
@@ -16,7 +23,7 @@ async function startExam(req, res) {
   try {
     // Convert camelCase to snake_case for database
     const body = keysToSnake(req.body);
-    const { device_id, question_count = 45, filters = {} } = body;
+    const { device_id, question_count = 40, filters = {} } = body;
 
     // Validate deviceId
     if (!device_id) {
@@ -46,53 +53,94 @@ async function startExam(req, res) {
       });
     }
 
-    // Get all available questions (convert callback to Promise)
-    // Support language filtering for exams
-    const allQuestions = await new Promise((resolve, reject) => {
-      Question.findAll(language, (err, questions) => {
-        if (err) reject(err);
-        else resolve(questions || []);
+    let selectedQuestions = [];
+    let selectionIssues = [];
+    let contextUsed = null;
+
+    // Check if this is a structured 40-question exam
+    if (questionCountNum === 40) {
+      console.log('Generating structured 40-question exam...');
+      
+      // Use structured question selection
+      const examStructure = getExamStructure();
+      const selectionResult = await selectStructuredQuestions(examStructure, language);
+      
+      selectedQuestions = selectionResult.questions.map(item => item.question);
+      selectionIssues = selectionResult.issues;
+      contextUsed = selectionResult.contextUsed;
+      
+      // Log any issues but continue with available questions
+      if (selectionIssues.length > 0) {
+        console.warn('Exam generation issues:', selectionIssues);
+      }
+      
+      // If we couldn't get enough questions, fallback to random selection
+      if (selectedQuestions.length < 30) { // Allow some flexibility
+        console.warn(`Only ${selectedQuestions.length} structured questions found, falling back to random selection`);
+        selectedQuestions = [];
+      }
+    }
+
+    // Fallback to random selection for non-40 question exams or if structured selection failed
+    if (selectedQuestions.length === 0) {
+      console.log('Using random question selection...');
+      
+      // Get all available questions (convert callback to Promise)
+      const allQuestions = await new Promise((resolve, reject) => {
+        Question.findAll(language, (err, questions) => {
+          if (err) reject(err);
+          else resolve(questions || []);
+        });
       });
-    });
 
-    if (allQuestions.length === 0) {
-      return res.status(400).json({
-        error: 'No questions available in the database'
-      });
+      if (allQuestions.length === 0) {
+        return res.status(400).json({
+          error: 'No questions available in the database'
+        });
+      }
+
+      // Apply filters if provided
+      let filteredQuestions = allQuestions;
+
+      if (filters.topic) {
+        filteredQuestions = filteredQuestions.filter(q => q.topic === filters.topic);
+      }
+
+      if (filters.level) {
+        filteredQuestions = filteredQuestions.filter(q => q.level === parseInt(filters.level));
+      }
+
+      if (filteredQuestions.length === 0) {
+        return res.status(400).json({
+          error: 'No questions match the specified filters'
+        });
+      }
+
+      // Shuffle and select random questions
+      const shuffled = filteredQuestions.sort(() => Math.random() - 0.5);
+      selectedQuestions = shuffled.slice(0, Math.min(questionCountNum, shuffled.length));
     }
-
-    // Apply filters if provided
-    let filteredQuestions = allQuestions;
-
-    if (filters.topic) {
-      filteredQuestions = filteredQuestions.filter(q => q.topic === filters.topic);
-    }
-
-    if (filters.level) {
-      filteredQuestions = filteredQuestions.filter(q => q.level === parseInt(filters.level));
-    }
-
-    if (filteredQuestions.length === 0) {
-      return res.status(400).json({
-        error: 'No questions match the specified filters'
-      });
-    }
-
-    // Shuffle and select random questions
-    const shuffled = filteredQuestions.sort(() => Math.random() - 0.5);
-    const selectedQuestions = shuffled.slice(0, Math.min(questionCountNum, shuffled.length));
 
     // Create exam
     const examId = await Exam.create(device_id, selectedQuestions.length);
 
     // Create exam questions with correct answers and max points
     const examQuestions = selectedQuestions.map((q, index) => {
-      const correctAnswers = parseAnswers(q.answer);
-      const maxPoints = getMaxPoints(correctAnswers.length);
+      const order = index + 1;
+      const isStructured = questionCountNum === 40;
+      
+      // Use structured scoring for 40-question exams
+      let maxPoints;
+      if (isStructured) {
+        maxPoints = getMaxPointsForQuestion(order, true);
+      } else {
+        const correctAnswers = parseAnswers(q.answer);
+        maxPoints = getMaxPoints(correctAnswers.length);
+      }
 
       return {
         questionId: q.id,
-        order: index + 1,
+        order: order,
         correctAnswer: q.answer,
         maxPoints: maxPoints
       };
@@ -103,15 +151,28 @@ async function startExam(req, res) {
     // Get exam details
     const exam = await Exam.getById(examId);
 
-    // Return response in camelCase
-    const response = keysToCamel({
+    // Prepare response data
+    const responseData = {
       exam_id: examId,
       device_id: device_id,
       total_questions: selectedQuestions.length,
       question_ids: selectedQuestions.map(q => q.id),
       started_at: exam.started_at,
-      status: exam.status
+      status: exam.status,
+      is_structured: questionCountNum === 40,
+      structure_issues: selectionIssues.length > 0 ? selectionIssues : undefined,
+      context_used: contextUsed ? contextUsed.id : undefined
+    };
+
+    // Remove undefined fields
+    Object.keys(responseData).forEach(key => {
+      if (responseData[key] === undefined) {
+        delete responseData[key];
+      }
     });
+
+    // Return response in camelCase
+    const response = keysToCamel(responseData);
 
     res.status(201).json(response);
   } catch (error) {
@@ -244,33 +305,50 @@ async function submitExam(req, res) {
       return res.status(400).json({ error: 'This exam has already been submitted' });
     }
 
-    // Get all exam questions to get correct answers
+    // Get all exam questions to get correct answers and question orders
     const examQuestions = await ExamQuestion.getByExamId(examId);
 
-    // Create a map of questionId -> correct answer
+    // Create maps for answer lookup
     const correctAnswersMap = {};
+    const questionOrderMap = {};
     examQuestions.forEach(eq => {
       correctAnswersMap[eq.question_id] = eq.correct_answer;
+      questionOrderMap[eq.question_id] = eq.question_order;
     });
+
+    // Determine if this is a structured exam
+    const isStructured = examQuestions.length === 40;
 
     // Calculate points for each answer
     const answersWithPoints = answers.map(a => {
       const correctAnswer = correctAnswersMap[a.question_id];
+      const questionOrder = questionOrderMap[a.question_id];
 
       if (!correctAnswer) {
         // Question not in this exam
         return null;
       }
 
-      const { pointsEarned, maxPoints } = calculatePoints(
-        correctAnswer,
-        a.answer || ''
-      );
+      // Use structured scoring for 40-question exams
+      let result;
+      if (isStructured && questionOrder) {
+        result = calculateStructuredPoints(
+          correctAnswer,
+          a.answer || '',
+          questionOrder,
+          true
+        );
+      } else {
+        result = calculatePoints(
+          correctAnswer,
+          a.answer || ''
+        );
+      }
 
       return {
         questionId: a.question_id,
         userAnswer: a.answer || '',
-        pointsEarned: pointsEarned
+        pointsEarned: result.pointsEarned
       };
     }).filter(a => a !== null);
 
@@ -402,11 +480,43 @@ async function getUserStats(req, res) {
   }
 }
 
+/**
+ * Check exam readiness for structured 40-question exams
+ * GET /api/exams/readiness
+ */
+async function checkExamReadiness(req, res) {
+  try {
+    // Get language from query parameters or headers
+    const language = getValidatedLanguage(req);
+    
+    // Check for invalid language that was explicitly provided
+    const rawLanguage = req.headers['accept-language'] || 
+                       req.headers['x-app-language'] || 
+                       req.query.language;
+    
+    if (rawLanguage && !language) {
+      return res.status(400).json(createLanguageError(rawLanguage));
+    }
+
+    // Generate readiness report
+    const report = await generateReadinessReport(language);
+
+    // Convert to camelCase
+    const response = keysToCamel(report);
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error checking exam readiness:', error);
+    res.status(500).json({ error: 'Failed to check exam readiness' });
+  }
+}
+
 module.exports = {
   startExam,
   getExamQuestions,
   submitExam,
   getExamHistory,
   getExamDetails,
-  getUserStats
+  getUserStats,
+  checkExamReadiness
 };

@@ -624,8 +624,107 @@
     },
     {
       "name": "🎯 Exams",
-      "description": "Exam system with automatic scoring",
+      "description": "Exam system with automatic scoring and structured 40-question exams",
       "item": [
+        {
+          "name": "Check Exam Readiness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept-Language",
+                "value": "ru",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/exams/readiness",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams",
+                "readiness"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
+                  "",
+                  "pm.test('Readiness check returns valid data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('isReady');",
+                  "    pm.expect(response).to.have.property('timestamp');",
+                  "    pm.expect(response).to.have.property('language');",
+                  "    pm.expect(response).to.have.property('topicCoverage');",
+                  "    pm.expect(response).to.have.property('typeCoverage');",
+                  "    pm.expect(response).to.have.property('recommendedActions');",
+                  "    pm.expect(response).to.have.property('summary');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Structured 40-Question Exam",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "ru",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 40,\n  \"filters\": {}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exams/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams",
+                "start"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
+                  "",
+                  "pm.test('Structured exam started successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('examId');",
+                  "    pm.expect(response).to.have.property('totalQuestions');",
+                  "    pm.expect(response.totalQuestions).to.equal(40);",
+                  "    pm.expect(response).to.have.property('isStructured');",
+                  "    pm.expect(response.isStructured).to.be.true;",
+                  "    ",
+                  "    // Save structured exam ID",
+                  "    pm.collectionVariables.set('structured_exam_id', response.examId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "Start Exam",
           "request": {
@@ -643,7 +742,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 5,\n  \"filters\": {\n    \"topic\": \"ALG\"\n  }\n}"
+              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 40,\n  \"filters\": {}\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/exams/start",
@@ -694,7 +793,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 5,\n  \"filters\": {}\n}"
+              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"questionCount\": 20,\n  \"filters\": {\n    \"topic\": \"ALG\"\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/exams/start",
@@ -759,6 +858,173 @@
                   "    if (response.length > 0) {",
                   "        pm.collectionVariables.set('first_question_id', response[0].questionId);",
                   "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validate Structured Exam Questions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept-Language",
+                "value": "ru",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/exams/{{structured_exam_id}}/questions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams",
+                "{{structured_exam_id}}",
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
+                  "",
+                  "pm.test('Structured exam has correct number of questions', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    pm.expect(response.length).to.equal(40);",
+                  "});",
+                  "",
+                  "pm.test('Questions 1-15 are simple (level 1)', function () {",
+                  "    const response = pm.response.json();",
+                  "    const simpleQuestions = response.slice(0, 15);",
+                  "    simpleQuestions.forEach((q, index) => {",
+                  "        pm.expect(q.level, `Question ${index + 1} should be level 1`).to.equal(1);",
+                  "        pm.expect(q.options, `Question ${index + 1} should have 4 options`).to.be.an('array').with.length(4);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Questions 16-25 are complex (level 2)', function () {",
+                  "    const response = pm.response.json();",
+                  "    const complexQuestions = response.slice(15, 25);",
+                  "    complexQuestions.forEach((q, index) => {",
+                  "        pm.expect(q.level, `Question ${index + 16} should be level 2`).to.equal(2);",
+                  "        pm.expect(q.options, `Question ${index + 16} should have 4 options`).to.be.an('array').with.length(4);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Questions 26-30 are context questions', function () {",
+                  "    const response = pm.response.json();",
+                  "    const contextQuestions = response.slice(25, 30);",
+                  "    let contextId = null;",
+                  "    contextQuestions.forEach((q, index) => {",
+                  "        pm.expect(q.contextId, `Question ${index + 26} should have context`).to.not.be.null;",
+                  "        if (contextId === null) {",
+                  "            contextId = q.contextId;",
+                  "        } else {",
+                  "            pm.expect(q.contextId, `Question ${index + 26} should use same context`).to.equal(contextId);",
+                  "        }",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Questions 36-40 are multiple choice (6 options)', function () {",
+                  "    const response = pm.response.json();",
+                  "    const multipleQuestions = response.slice(35, 40);",
+                  "    multipleQuestions.forEach((q, index) => {",
+                  "        pm.expect(q.options, `Question ${index + 36} should have 6 options`).to.be.an('array').with.length(6);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Question topics follow the structure', function () {",
+                  "    const response = pm.response.json();",
+                  "    const expectedTopics = [",
+                  "        'RAD', 'POW', 'TRG', 'ALG', 'EQS', 'SYS', 'CAL', 'GEO', 'INS', 'TRE',",
+                  "        'CAL', 'INE', 'GEO', 'CAL', 'SPA', // 1-15",
+                  "        'EXL', 'SYM', 'CAL', 'GEO', 'PRG', 'VEC', 'ALG', 'EXL', 'INE', 'CAL' // 16-25",
+                  "    ];",
+                  "    ",
+                  "    // Check first 25 questions have expected topics",
+                  "    for (let i = 0; i < 25; i++) {",
+                  "        pm.expect(response[i].topic, `Question ${i + 1} should have topic ${expectedTopics[i]}`).to.equal(expectedTopics[i]);",
+                  "    }",
+                  "    ",
+                  "    // Save question IDs for testing different answer types",
+                  "    if (response.length >= 36) {",
+                  "        pm.collectionVariables.set('question_1_id', response[0].questionId);",
+                  "        pm.collectionVariables.set('question_16_id', response[15].questionId);",
+                  "        pm.collectionVariables.set('question_26_id', response[25].questionId);",
+                  "        pm.collectionVariables.set('question_31_id', response[30].questionId);",
+                  "        pm.collectionVariables.set('question_36_id', response[35].questionId);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Structured Exam (Test All Answer Types)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"answers\": [\n    {\n      \"questionId\": \"{{question_1_id}}\",\n      \"answer\": \"A\"\n    },\n    {\n      \"questionId\": \"{{question_16_id}}\",\n      \"answer\": \"B\"\n    },\n    {\n      \"questionId\": \"{{question_26_id}}\",\n      \"answer\": \"C\"\n    },\n    {\n      \"questionId\": \"{{question_31_id}}\",\n      \"answer\": \"A1B2\"\n    },\n    {\n      \"questionId\": \"{{question_36_id}}\",\n      \"answer\": \"A,C,E\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exams/{{structured_exam_id}}/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams",
+                "{{structured_exam_id}}",
+                "submit"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is successful\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);\n});\n\npm.test(\"Response time is less than 5000ms\", function () {\n    pm.expect(pm.response.responseTime).to.be.below(5000);\n});\n\npm.test(\"Response has correct Content-Type\", function () {\n    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");\n});",
+                  "",
+                  "pm.test('Structured exam submitted successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('exam');",
+                  "    pm.expect(response).to.have.property('questions');",
+                  "    pm.expect(response.exam).to.have.property('totalPoints');",
+                  "    pm.expect(response.exam).to.have.property('maxPossiblePoints');",
+                  "});",
+                  "",
+                  "pm.test('Answer formats are properly processed', function () {",
+                  "    const response = pm.response.json();",
+                  "    const questions = response.questions;",
+                  "    ",
+                  "    // Check that we have answers for different question types",
+                  "    pm.expect(questions.length).to.be.greaterThan(0);",
+                  "    ",
+                  "    // Look for different answer formats in the response",
+                  "    const hasSimpleAnswer = questions.some(q => q.userAnswer && q.userAnswer.length === 1);",
+                  "    const hasMatchingAnswer = questions.some(q => q.userAnswer && q.userAnswer.match(/[A-Z][0-9]/));",
+                  "    const hasMultipleAnswer = questions.some(q => q.userAnswer && q.userAnswer.includes(','));",
+                  "    ",
+                  "    console.log('Simple answers found:', hasSimpleAnswer);",
+                  "    console.log('Matching answers found:', hasMatchingAnswer);",
+                  "    console.log('Multiple answers found:', hasMultipleAnswer);",
                   "});"
                 ]
               }
