@@ -179,15 +179,18 @@ class Question {
             return {
               id: row.id,
               question: questionText,
-              language: language,
               answer: row.answer,
               level: row.level,
               topic: row.topic,
-              photos: photos,
+              language: questionLanguage,
               created_at: row.created_at,
               updated_at: row.updated_at,
-              options: options,
-              context: context
+              context_id: row.context_id,
+              context_text: row.context_text,
+              context_title: row.context_title,
+              context_photos: row.context_photos ? JSON.parse(row.context_photos) : null,
+              photos: photos,
+              options: options
             };
           });
           
@@ -197,7 +200,13 @@ class Question {
     });
   }
 
-  static findById(id, callback) {
+  static findById(id, language = null, callback) {
+    // Handle case where language is actually the callback (backward compatibility)
+    if (typeof language === 'function') {
+      callback = language;
+      language = null;
+    }
+
     const sql = `
       SELECT q.*, 
              c.text as context_text,
@@ -214,31 +223,96 @@ class Question {
       } else if (!row) {
         callback(null, null);
       } else {
-        const language = row.language || 'ru';
-        const questionText = language === 'kz' ? row.question_kz : row.question_ru;
+        // Use provided language or fallback to question's default language
+        const questionLanguage = language || row.language || 'ru';
+        
+        // Choose question text based on language with fallback
+        const questionText = questionLanguage === 'kz' ? 
+          (row.question_kz || row.question_ru) : // Fallback to Russian if Kazakh is missing
+          (row.question_ru || row.question_kz);   // Fallback to Kazakh if Russian is missing
+        
         const photos = JSON.parse(row.photos || '[]');
         
-        const context = row.context_id ? {
-          id: row.context_id,
-          text: row.context_text,
-          title: row.context_title,
-          photos: JSON.parse(row.context_photos || '[]')
-        } : null;
+        // Get options for this question with same logic as findAll
+        const optionsSql = `
+          SELECT ao.*, s.id as sub_id, s.text as sub_text, s.correct as sub_correct, s.order_index as sub_order
+          FROM answer_options ao
+          LEFT JOIN suboptions s ON ao.id = s.option_id
+          WHERE ao.question_id = ?
+          ORDER BY ao.order_index, s.order_index
+        `;
         
-        const question = {
-          id: row.id,
-          question: questionText,
-          language: language,
-          answer: row.answer,
-          level: row.level,
-          topic: row.topic,
-          photos: photos,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          context: context
-        };
-        
-        callback(null, question);
+        database.db.all(optionsSql, [id], (optErr, optionRows) => {
+          if (optErr) {
+            callback(optErr, null);
+            return;
+          }
+          
+          // Group options and build structure
+          const questionOptions = {};
+          optionRows.forEach(opt => {
+            if (!questionOptions[opt.id]) {
+              questionOptions[opt.id] = {
+                id: opt.id,
+                option_letter: opt.option_letter,
+                option_text_ru: opt.option_text_ru,
+                option_text_kz: opt.option_text_kz,
+                order_index: opt.order_index,
+                suboptions: []
+              };
+            }
+            
+            // Add suboption if it exists
+            if (opt.sub_id) {
+              questionOptions[opt.id].suboptions.push({
+                id: opt.sub_id,
+                text: opt.sub_text,
+                correct: opt.sub_correct === 1,
+                order_index: opt.sub_order
+              });
+            }
+          });
+          
+          // Transform options to same format as findAll
+          const options = Object.values(questionOptions).map(opt => {
+            const optionText = questionLanguage === 'kz' ? opt.option_text_kz : opt.option_text_ru;
+            
+            if (opt.suboptions && opt.suboptions.length > 0) {
+              return {
+                text: optionText,
+                suboptions: opt.suboptions
+              };
+            } else {
+              return optionText;
+            }
+          });
+          
+          const context = row.context_id ? {
+            id: row.context_id,
+            text: row.context_text,
+            title: row.context_title,
+            photos: JSON.parse(row.context_photos || '[]')
+          } : null;
+          
+          const question = {
+            id: row.id,
+            question: questionText,
+            language: questionLanguage,
+            answer: row.answer,
+            level: row.level,
+            topic: row.topic,
+            photos: photos,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            context_id: row.context_id,
+            context_text: row.context_text,
+            context_title: row.context_title,
+            context_photos: row.context_photos ? JSON.parse(row.context_photos) : null,
+            options: options
+          };
+          
+          callback(null, question);
+        });
       }
     });
   }

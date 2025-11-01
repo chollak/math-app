@@ -2,6 +2,7 @@ const Question = require('../models/Question');
 const AnswerOption = require('../models/AnswerOption');
 const database = require('../config/database');
 const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
+const { keysToCamel } = require('../utils/caseConverter');
 
 const questionController = {
   // Create a new question with options and photos
@@ -138,7 +139,7 @@ const questionController = {
             return false;
           });
 
-          res.status(201).json({
+          const response = {
             id: createdQuestion.id,
             question: questionText,
             language: language,
@@ -150,7 +151,9 @@ const questionController = {
             updated_at: new Date().toISOString(),
             options: optionsArray,
             context: null // Will be loaded separately if context_id exists
-          });
+          };
+
+          res.status(201).json(keysToCamel(response));
         });
       });
 
@@ -184,6 +187,7 @@ const questionController = {
       const transformedQuestions = questions.map(question => {
         const transformed = {
           id: question.id,
+          question: question.question, // Add question text first to match single question format
           answer: question.answer,
           level: question.level,
           topic: question.topic,
@@ -198,21 +202,30 @@ const questionController = {
           options: question.options
         };
 
-        // Add question text - use the question field from model which already has correct language
-        transformed.question = question.question;
-
         return transformed;
       });
 
-      res.json(transformedQuestions);
+      res.json(keysToCamel(transformedQuestions));
     });
   },
 
   // Get single question by ID
   getQuestionById: (req, res) => {
     const { id } = req.params;
+    
+    // Get language from query parameters (priority) or headers  
+    const language = getValidatedLanguage(req);
+    
+    // Check for invalid language that was explicitly provided
+    const rawLanguage = req.headers['accept-language'] || 
+                       req.headers['x-app-language'] || 
+                       req.query.language;
+    
+    if (rawLanguage && !language) {
+      return res.status(400).json(createLanguageError(rawLanguage));
+    }
 
-    Question.findById(id, (err, question) => {
+    Question.findById(id, language, (err, question) => {
       if (err) {
         console.error('Error fetching question:', err);
         return res.status(500).json({ error: 'Failed to fetch question' });
@@ -222,40 +235,25 @@ const questionController = {
         return res.status(404).json({ error: 'Question not found' });
       }
 
-      // Get answer options for this question
-      AnswerOption.findByQuestionId(id, (err, options) => {
-        if (err) {
-          console.error('Error fetching answer options:', err);
-          return res.status(500).json({ error: 'Failed to fetch answer options' });
-        }
+      // Transform question to match getAllQuestions format
+      const transformed = {
+        id: question.id,
+        question: question.question, // Already language-specific from findById
+        answer: question.answer,
+        level: question.level,
+        topic: question.topic,
+        language: question.language,
+        created_at: question.created_at,
+        updated_at: question.updated_at,
+        context_id: question.context_id,
+        context_text: question.context_text,
+        context_title: question.context_title,
+        context_photos: question.context_photos,
+        photos: question.photos,
+        options: question.options
+      };
 
-        // Transform options to match the format from Question.findAll
-        const language = question.language || 'ru';
-        const transformedOptions = options.map(option => {
-          const optionText = language === 'kz' ? option.option_text_kz : option.option_text_ru;
-          
-          if (option.suboptions && option.suboptions.length > 0) {
-            return {
-              text: optionText,
-              suboptions: option.suboptions
-            };
-          } else {
-            return optionText;
-          }
-        }).filter(option => {
-          if (typeof option === 'string') {
-            return option;
-          } else if (typeof option === 'object') {
-            return option.text;
-          }
-          return false;
-        });
-
-        res.json({
-          ...question,
-          options: transformedOptions
-        });
-      });
+      res.json(keysToCamel(transformed));
     });
   },
 
@@ -372,18 +370,18 @@ const questionController = {
               }
 
               // Return updated question with options
-              res.json({
+              res.json(keysToCamel({
                 ...updatedQuestion,
                 message: 'Question updated successfully'
-              });
+              }));
             });
           });
         } else {
           // No options to update, return question
-          res.json({
+          res.json(keysToCamel({
             ...updatedQuestion,
             message: 'Question updated successfully'
-          });
+          }));
         }
       });
 
@@ -411,7 +409,7 @@ const questionController = {
           return res.status(500).json({ error: 'Failed to delete question' });
         }
 
-        res.json(result);
+        res.json(keysToCamel(result));
       });
 
     } catch (error) {

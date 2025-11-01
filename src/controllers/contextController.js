@@ -1,4 +1,5 @@
 const Context = require('../models/Context');
+const { keysToCamel } = require('../utils/caseConverter');
 
 const contextController = {
   // Create a new context with photos
@@ -41,7 +42,7 @@ const contextController = {
           return res.status(500).json({ error: 'Failed to create context' });
         }
 
-        res.status(201).json(createdContext);
+        res.status(201).json(keysToCamel(createdContext));
       });
 
     } catch (error) {
@@ -58,7 +59,7 @@ const contextController = {
         return res.status(500).json({ error: 'Failed to fetch contexts' });
       }
 
-      res.json(contexts);
+      res.json(keysToCamel(contexts));
     });
   },
 
@@ -76,7 +77,7 @@ const contextController = {
         return res.status(404).json({ error: 'Context not found' });
       }
 
-      res.json(context);
+      res.json(keysToCamel(context));
     });
   },
 
@@ -122,7 +123,7 @@ const contextController = {
           return res.status(500).json({ error: 'Failed to update context' });
         }
 
-        res.json(updatedContext);
+        res.json(keysToCamel(updatedContext));
       });
 
     } catch (error) {
@@ -144,7 +145,7 @@ const contextController = {
         return res.status(500).json({ error: 'Failed to delete context' });
       }
 
-      res.json({ message: 'Context deleted successfully', id: result.id });
+      res.json(keysToCamel({ message: 'Context deleted successfully', id: result.id }));
     });
   }
 };
