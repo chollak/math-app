@@ -68,10 +68,15 @@ class Question {
 
     const params = [];
     
-    // Add language filter if specified
+    // Add language filter if specified - filter by text availability
     if (language && (language === 'ru' || language === 'kz')) {
-      sql += ` WHERE q.language = ?`;
-      params.push(language);
+      if (language === 'kz') {
+        // Show questions that have Kazakh text
+        sql += ` WHERE q.question_kz IS NOT NULL AND q.question_kz != ''`;
+      } else {
+        // Show questions that have Russian text  
+        sql += ` WHERE q.question_ru IS NOT NULL AND q.question_ru != ''`;
+      }
     }
     
     sql += `
@@ -136,9 +141,12 @@ class Question {
           
           // Transform data to new format
           const questions = rows.map(row => {
-            // Use the requested language filter or fallback to question's language
+            // Определяем язык для отображения  
             const questionLanguage = language || row.language || 'ru';
-            const questionText = questionLanguage === 'kz' ? row.question_kz : row.question_ru;
+            // Выбираем текст вопроса в зависимости от языка
+            const questionText = questionLanguage === 'kz' ? 
+              (row.question_kz || row.question_ru) : // Fallback to Russian if Kazakh is missing
+              (row.question_ru || row.question_kz);   // Fallback to Kazakh if Russian is missing
             
             // Parse photos
             const photos = JSON.parse(row.photos || '[]');

@@ -162,7 +162,7 @@ const questionController = {
 
   // Get all questions with their options
   getAllQuestions: (req, res) => {
-    // Get language from headers (preferred) or query parameters (backward compatibility)
+    // Get language from query parameters (priority) or headers  
     const language = getValidatedLanguage(req);
     
     // Check for invalid language that was explicitly provided
@@ -198,17 +198,8 @@ const questionController = {
           options: question.options
         };
 
-        // Add question text based on language
-        if (language === 'kz') {
-          transformed.question = question.question_kz || question.question_ru;
-        } else if (language === 'ru') {
-          transformed.question = question.question_ru;
-        } else {
-          // No language filter - return both
-          transformed.question_ru = question.question_ru;
-          transformed.question_kz = question.question_kz;
-          transformed.question = question.question_ru; // Default fallback
-        }
+        // Add question text - use the question field from model which already has correct language
+        transformed.question = question.question;
 
         return transformed;
       });

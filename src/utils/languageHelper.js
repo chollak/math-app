@@ -15,22 +15,28 @@
  * @returns {string|null} - Language code ('ru', 'kz') or null
  */
 function getLanguageFromRequest(req, filters = {}) {
-  // Priority 1: Accept-Language header (HTTP standard)
-  let language = req.headers['accept-language'];
+  // Priority 1: Query parameter (explicit user choice)
+  let language = req.query.language;
   
   // Priority 2: X-App-Language header (custom for mobile apps)
   if (!language) {
     language = req.headers['x-app-language'];
   }
   
-  // Priority 3: Query parameter (backward compatibility)
-  if (!language) {
-    language = req.query.language;
-  }
-  
-  // Priority 4: Filters object (for exams)
+  // Priority 3: Filters object (for exams)
   if (!language && filters.language) {
     language = filters.language;
+  }
+  
+  // Priority 4: Accept-Language header only if explicitly valid
+  if (!language) {
+    const acceptLang = req.headers['accept-language'];
+    if (acceptLang) {
+      const primaryLang = acceptLang.toLowerCase().split('-')[0].split(',')[0];
+      if (primaryLang === 'ru' || primaryLang === 'kz') {
+        language = primaryLang;
+      }
+    }
   }
   
   // Clean up language code (handle cases like "ru-RU" -> "ru")
