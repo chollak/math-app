@@ -36,8 +36,11 @@
       border-radius:8px;
       cursor:pointer;
       font-size:14px;
+      transition:background 0.2s ease;
     }
+    .btn:hover{ opacity:0.9; }
     .btn.secondary{ background:#6b7280; }
+    .btn.danger{ background:#dc2626; }
     .search{
       padding:8px 10px;
       border-radius:8px;
@@ -102,7 +105,6 @@
   </main>
 
   <script>
-    // <- если нужно, поменяй базовый URL
     const API_BASE = 'http://77.243.80.114:3000';
     const ENDPOINT = API_BASE + '/api/contexts';
 
@@ -138,6 +140,18 @@
       }
     }
 
+    async function deleteContext(id, cardEl) {
+      if (!confirm(`Удалить контекст #${id}?`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/contexts/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`Ошибка HTTP ${res.status}`);
+        cardEl.remove();
+        alert(`Контекст #${id} удалён`);
+      } catch (err) {
+        alert('Ошибка при удалении: ' + err.message);
+      }
+    }
+
     function renderList(data){
       listEl.innerHTML = '';
       if (!Array.isArray(data) || data.length === 0) {
@@ -154,7 +168,14 @@
         const h2 = document.createElement('h2');
         h2.textContent = titleText;
 
-        // small meta (id + created_at)
+        // Кнопка удалить справа
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn danger';
+        deleteBtn.textContent = 'Удалить';
+        deleteBtn.onclick = () => deleteContext(item.id, card);
+        h2.appendChild(deleteBtn);
+
+        // meta
         const meta = document.createElement('div');
         meta.className = 'meta';
         const parts = [];
@@ -162,43 +183,35 @@
         if (item.created_at) parts.push('created: ' + item.created_at);
         if (item.updated_at) parts.push('updated: ' + item.updated_at);
         meta.textContent = parts.join(' • ');
-        h2.appendChild(document.createElement('span')); // keeps layout consistent
+
         card.appendChild(h2);
         if (parts.length) card.appendChild(meta);
 
-        // fields grid - show all keys (photos handled separately)
+        // fields
         const fields = document.createElement('div');
         fields.className = 'fields';
 
         for (const key of Object.keys(item)) {
-          // Skip photos here — we will render them below in a photo grid
           if (key === 'photos') continue;
-
           const keyEl = document.createElement('div');
           keyEl.className = 'field-key';
           keyEl.textContent = key;
 
           const valueEl = document.createElement('div');
           valueEl.className = 'field-value';
-
           const val = item[key];
 
           if (val === null || val === undefined) {
             valueEl.textContent = '—';
           } else if (typeof val === 'string') {
-            // preserve line breaks
             valueEl.textContent = val;
-            valueEl.style.whiteSpace = 'pre-wrap';
           } else if (Array.isArray(val)) {
-            // small list
             const ul = document.createElement('ul');
             ul.style.margin = 0;
             ul.style.paddingLeft = '18px';
             val.forEach(v => {
               const li = document.createElement('li');
-              if (v === null || v === undefined) li.textContent = '—';
-              else if (typeof v === 'object') li.textContent = JSON.stringify(v);
-              else li.textContent = String(v);
+              li.textContent = typeof v === 'object' ? JSON.stringify(v) : String(v);
               ul.appendChild(li);
             });
             valueEl.appendChild(ul);
@@ -217,7 +230,7 @@
 
         card.appendChild(fields);
 
-        // photos array (if exists)
+        // photos
         if (Array.isArray(item.photos) && item.photos.length) {
           const photosDiv = document.createElement('div');
           photosDiv.className = 'photos';
@@ -226,25 +239,15 @@
             const a = document.createElement('a');
             a.href = API_BASE + '/api/files/' + encodeURIComponent(filename);
             a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-
             const img = document.createElement('img');
-            img.loading = 'lazy';
-            img.alt = filename;
             img.src = API_BASE + '/api/files/' + encodeURIComponent(filename);
             a.appendChild(img);
-
-            const caption = document.createElement('div');
-            caption.style.fontSize = '12px';
-            caption.style.padding = '6px';
-            // caption.textContent = filename;
-
             photosDiv.appendChild(a);
           });
           card.appendChild(photosDiv);
         }
 
-        // raw JSON toggle
+        // raw json toggle
         const rawBtn = document.createElement('button');
         rawBtn.className = 'btn secondary';
         rawBtn.style.marginTop = '12px';
@@ -260,12 +263,10 @@
 
         card.appendChild(rawBtn);
         card.appendChild(pre);
-
         listEl.appendChild(card);
       });
     }
 
-    // filter helper (simple text search over title and text)
     function applySearch() {
       const q = searchInput.value.trim().toLowerCase();
       if (!lastResponse) return;
@@ -290,7 +291,6 @@
       showAllJsonBtn.textContent = allJsonContainer.style.display === 'none' ? 'Показать весь JSON' : 'Скрыть весь JSON';
     };
 
-    // initial load
     fetchAndRender();
   </script>
 </body>
