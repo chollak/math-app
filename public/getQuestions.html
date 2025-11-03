@@ -5,26 +5,25 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Вопросы — /api/questions</title>
   <style>
-    :root{--bg:#f8fafc;--card:#fff;--muted:#6b7280;--accent:#0f172a}
+    :root{--bg:#f8fafc;--card:#fff;--muted:#6b7280;--accent:#0f172a;--danger:#dc2626}
     body{font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;margin:0;background:var(--bg);color:var(--accent)}
     .container{max-width:960px;margin:20px auto;padding:16px}
     header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
     h1{margin:0;font-size:20px}
     input[type=text]{flex:1;min-width:220px;padding:8px 10px;border-radius:8px;border:1px solid #d1d5db;background:#fff}
+    select{padding:8px 10px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+    button.delete{background:var(--danger);color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer}
+    button.delete:hover{opacity:0.9}
     .list{display:flex;flex-direction:column;gap:10px}
-    .card{background:var(--card);border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:6px}
+    .card{background:var(--card);border-radius:10px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:6px;position:relative}
     .meta{font-size:12px;color:var(--muted)}
     .title{font-weight:600;margin:2px 0}
     .options{display:flex;gap:6px;flex-wrap:wrap}
     .option{background:#f3f4f6;padding:4px 6px;border-radius:6px;font-size:13px}
-    .suboptions{margin-left:15px;margin-top:5px}
-    .suboption{background:#e6f3ff;padding:2px 4px;border-radius:4px;font-size:12px;display:inline-block;margin:2px}
-    .suboption.correct{background:#d4edda;border:1px solid #c3e6cb}
-    .option-with-suboptions{background:#fff3cd;border:1px solid #ffeaa7}
     .answer{display:inline-block;padding:4px 6px;border-radius:6px;background:#e6fffa;border:1px solid #bff0e7;margin-left:4px;font-size:13px;font-weight:600}
+    .context{font-size:13px;color:var(--muted);margin-top:6px}
     .photos{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
     .photos img{width:100px;height:100px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #e6eef6}
-    .context{font-size:12px;color:var(--muted)}
     .empty{padding:20px;text-align:center;color:var(--muted)}
     .modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,0.6);z-index:50}
     .modal.open{display:grid}
@@ -36,6 +35,10 @@
     <header>
       <h1>Список вопросов</h1>
       <input id="search" type="text" placeholder="Поиск..." />
+      <select id="language">
+        <option value="ru" selected>Русский</option>
+        <option value="kz">Қазақша</option>
+      </select>
     </header>
     <div id="status" class="meta">Загрузка...</div>
     <main class="list" id="list"></main>
@@ -46,76 +49,69 @@
   </div>
 
   <script>
-    const API_BASE = 'https://math-app-production.up.railway.app';
+    const API_BASE = 'http://77.243.80.114:3000';
     const listEl = document.getElementById('list');
     const status = document.getElementById('status');
     const searchInput = document.getElementById('search');
+    const languageSelect = document.getElementById('language');
     const modal = document.getElementById('modal');
     const modalImg = document.getElementById('modalImg');
     let allData = [];
+    let currentLang = languageSelect.value;
 
-    modal.addEventListener('click', ()=>{modal.classList.remove('open'); modal.setAttribute('aria-hidden','true');});
-    searchInput.addEventListener('input', ()=>renderList(searchInput.value));
+    modal.addEventListener('click', () => {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    });
 
-    async function load(){
-      try{
-        const res = await fetch(`${API_BASE}/api/questions`);
-        if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
+    searchInput.addEventListener('input', () => renderList(searchInput.value));
+    languageSelect.addEventListener('change', () => {
+      currentLang = languageSelect.value;
+      load();
+    });
+
+    async function load() {
+      try {
+        status.textContent = 'Загрузка...';
+        listEl.innerHTML = '';
+        const res = await fetch(`${API_BASE}/api/questions`, {
+          headers: {
+            'Accept-Language': currentLang
+          }
+        });
+        if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
         const data = await res.json();
         allData = Array.isArray(data) ? data : [];
-        status.textContent = `Получено ${allData.length} вопросов`;
+        status.textContent = `Получено ${allData.length} вопросов (${currentLang})`;
         renderList();
-      }catch(err){
+      } catch (err) {
         status.textContent = 'Ошибка: ' + err.message;
         listEl.innerHTML = '<div class="empty">Не удалось получить данные</div>';
         console.error(err);
       }
     }
 
-    function renderList(filter=''){
+    function renderList(filter = '') {
       const query = filter.toLowerCase();
-      const filtered = allData.filter(q => {
-        // Поиск в основных полях
-        const mainFieldsMatch = Object.values(q).some(v => typeof v === 'string' && v.toLowerCase().includes(query));
-        
-        // Поиск в опциях
-        let optionsMatch = false;
-        if (q.options) {
-          optionsMatch = q.options.some(o => {
-            if (typeof o === 'string') {
-              return o.toLowerCase().includes(query);
-            } else if (typeof o === 'object' && o.text) {
-              const textMatch = o.text.toLowerCase().includes(query);
-              const suboptionsMatch = o.suboptions && o.suboptions.some(sub => 
-                sub.text && sub.text.toLowerCase().includes(query)
-              );
-              return textMatch || suboptionsMatch;
-            }
-            return false;
-          });
-        }
-        
-        // Поиск в контексте
-        const contextMatch = q.context && (
-          q.context.text?.toLowerCase().includes(query) || 
-          q.context.title?.toLowerCase().includes(query)
-        );
-        
-        return mainFieldsMatch || optionsMatch || contextMatch;
-      });
+      const filtered = allData.filter(q =>
+        Object.values(q).some(v => typeof v === 'string' && v.toLowerCase().includes(query)) ||
+        (q.options && q.options.some(o => o.toLowerCase().includes(query))) ||
+        (q.contextText && q.contextText.toLowerCase().includes(query)) ||
+        (q.contextTitle && q.contextTitle.toLowerCase().includes(query))
+      );
 
       listEl.innerHTML = '';
-      if(filtered.length === 0){
+      if (filtered.length === 0) {
         listEl.innerHTML = '<div class="empty">Ничего не найдено</div>';
         return;
       }
-      filtered.sort((a,b)=>(a.id||0)-(b.id||0));
-      for(const q of filtered){
+      filtered.sort((a, b) => (a.id || 0) - (b.id || 0));
+      for (const q of filtered) {
         listEl.appendChild(renderCard(q));
       }
     }
 
-    function renderCard(q){
+    function renderCard(q) {
       const card = document.createElement('article');
       card.className = 'card';
 
@@ -123,46 +119,35 @@
       meta.className = 'meta';
       meta.textContent = `ID: ${q.id ?? '-'} | ${q.language} | Level ${q.level} | ${q.topic}`;
 
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete';
+      delBtn.textContent = 'Удалить';
+      delBtn.style.alignSelf = 'flex-start';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm(`Удалить вопрос #${q.id}?`)) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/questions/${q.id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+          card.remove();
+          allData = allData.filter(item => item.id !== q.id);
+          status.textContent = `Удален вопрос #${q.id}`;
+        } catch (err) {
+          alert('Не удалось удалить: ' + err.message);
+        }
+      });
+
       const title = document.createElement('div');
       title.className = 'title';
       title.textContent = q.question || '(пустой вопрос)';
 
       const optionsWrap = document.createElement('div');
       optionsWrap.className = 'options';
-      if(Array.isArray(q.options)){
-        q.options.forEach((opt, idx)=>{
-          const optionContainer = document.createElement('div');
-          optionContainer.style.marginBottom = '8px';
-          
-          if(typeof opt === 'string') {
-            // Простая опция
-            const el = document.createElement('div');
-            el.className='option';
-            el.textContent = String.fromCharCode(65+idx)+') '+opt;
-            optionContainer.appendChild(el);
-          } else if(typeof opt === 'object' && opt.text && opt.suboptions) {
-            // Опция с подопциями
-            const mainOption = document.createElement('div');
-            mainOption.className = 'option option-with-suboptions';
-            mainOption.textContent = String.fromCharCode(65+idx)+') '+opt.text;
-            optionContainer.appendChild(mainOption);
-            
-            if(opt.suboptions && opt.suboptions.length > 0) {
-              const suboptionsWrap = document.createElement('div');
-              suboptionsWrap.className = 'suboptions';
-              
-              opt.suboptions.forEach(subopt => {
-                const subEl = document.createElement('span');
-                subEl.className = subopt.correct ? 'suboption correct' : 'suboption';
-                subEl.textContent = subopt.text + (subopt.correct ? ' ✓' : '');
-                suboptionsWrap.appendChild(subEl);
-              });
-              
-              optionContainer.appendChild(suboptionsWrap);
-            }
-          }
-          
-          optionsWrap.appendChild(optionContainer);
+      if (Array.isArray(q.options)) {
+        q.options.forEach((opt, idx) => {
+          const el = document.createElement('div');
+          el.className = 'option';
+          el.textContent = String.fromCharCode(65 + idx) + ') ' + opt;
+          optionsWrap.appendChild(el);
         });
       }
 
@@ -170,31 +155,47 @@
       answerEl.innerHTML = '<strong>Ответ:</strong> <span class="answer">' + escape(q.answer || '') + '</span>';
 
       const contextEl = document.createElement('div');
-      if(q.context){
-        contextEl.className = 'context';
-        contextEl.textContent = `Context: ${q.context.title || ''} — ${q.context.text || ''}`;
+      contextEl.className = 'context';
+      if (q.contextTitle || q.contextText) {
+        contextEl.textContent = `${q.contextTitle || ''} — ${q.contextText || ''}`;
       }
 
       const photosWrap = document.createElement('div');
       photosWrap.className = 'photos';
-      if(Array.isArray(q.photos) && q.photos.length){
-        q.photos.forEach(filename=>{
+      const allPhotos = [
+        ...(Array.isArray(q.contextPhotos) ? q.contextPhotos : []),
+        ...(Array.isArray(q.photos) ? q.photos : [])
+      ];
+      if (allPhotos.length) {
+        allPhotos.forEach(filename => {
           const img = document.createElement('img');
           const src = API_BASE + '/api/files/' + encodeURIComponent(filename);
           img.src = src;
           img.alt = filename;
-          img.addEventListener('click', ()=>{ modalImg.src = src; modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); });
+          img.addEventListener('click', () => {
+            modalImg.src = src;
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+          });
           photosWrap.appendChild(img);
         });
       }
 
-      card.append(meta, title, optionsWrap, answerEl, contextEl, photosWrap);
+      card.append(meta, delBtn, title, optionsWrap, answerEl, contextEl, photosWrap);
       return card;
     }
 
-    function escape(s){ if(s==null) return ''; return String(s).replace(/[&<>\"]+/g, ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[ch]||ch)); }
+    function escape(s) {
+      if (s == null) return '';
+      return String(s).replace(/[&<>\"]+/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;'
+      }[ch] || ch));
+    }
 
-    load(); // auto-load on start
+    load();
   </script>
 </body>
 </html>
