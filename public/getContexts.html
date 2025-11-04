@@ -5,82 +5,161 @@
   <title>Просмотр контекстов — /api/contexts</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root{
-      --bg:#f7f9fc; --card:#fff; --accent:#007bff; --muted:#6b7280;
-      --radius:12px;
+    :root {
+      --bg: #f7f9fc;
+      --card: #fff;
+      --accent: #007bff;
+      --muted: #6b7280;
+      --radius: 12px;
+      --success: #10b981;
+      --danger: #dc2626;
     }
-    body{
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background:var(--bg);
-      margin:0;
-      padding:28px;
-      color:#111827;
+    body {
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      background: var(--bg);
+      margin: 0;
+      padding: 28px;
+      color: #111827;
     }
-    header{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:18px;
-      max-width:1000px;
-      margin-left:auto;
-      margin-right:auto;
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      max-width: 1000px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    h1{ margin:0; font-size:20px; color:var(--accent); }
-    .controls{ display:flex; gap:8px; align-items:center; }
-    .btn{
-      background:var(--accent);
-      color:white;
-      border:none;
-      padding:8px 12px;
-      border-radius:8px;
-      cursor:pointer;
-      font-size:14px;
-      transition:background 0.2s ease;
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      color: var(--accent);
     }
-    .btn:hover{ opacity:0.9; }
-    .btn.secondary{ background:#6b7280; }
-    .btn.danger{ background:#dc2626; }
-    .search{
-      padding:8px 10px;
-      border-radius:8px;
-      border:1px solid #d1d5db;
-      font-size:14px;
-      width:220px;
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
     }
-
-    main{ max-width:1000px; margin:auto; }
-
-    .card{
-      background:var(--card);
-      border-radius:var(--radius);
-      padding:16px;
-      box-shadow:0 6px 20px rgba(2,6,23,0.06);
-      margin-bottom:16px;
-      overflow:hidden;
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: opacity 0.2s ease;
     }
-    .card h2{ margin:0 0 8px 0; font-size:16px; color:var(--accent); display:flex; justify-content:space-between; align-items:center; gap:8px; }
-    .meta{ color:var(--muted); font-size:13px; margin-bottom:8px; }
-    .fields{ display:grid; grid-template-columns: 180px 1fr; gap:8px 12px; align-items:start; }
-    .field-key{ font-weight:600; color:#0f172a; font-size:13px; }
-    .field-value{ font-size:14px; color:#111827; word-break:break-word; white-space:pre-wrap; }
-
-    .photos{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-    .photos a{ display:inline-block; border-radius:8px; overflow:hidden; border:1px solid #e6e9ee; background:#fafafa; max-width:200px; }
-    .photos img{ display:block; width:200px; height:140px; object-fit:cover; }
-
-    pre.json{
-      background:#0f172a; color:#e6eef8; padding:12px; border-radius:8px; overflow:auto; max-height:260px;
-      font-size:12px; line-height:1.4;
+    .btn:hover { opacity: 0.9; }
+    .btn.secondary { background: #6b7280; }
+    .btn.danger { background: var(--danger); }
+    .btn.edit { background: var(--success); }
+    .search {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      width: 220px;
     }
 
-    .empty{ text-align:center; color:var(--muted); padding:30px 0; }
+    main {
+      max-width: 1000px;
+      margin: auto;
+    }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 6px 20px rgba(2, 6, 23, 0.06);
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      color: var(--accent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .photos {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .photos img {
+      width: 200px;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
 
-    @media (max-width:720px){
-      .fields{ grid-template-columns: 1fr; }
-      .photos img{ width:140px; height:100px; }
-      .photos a{ max-width:140px; }
-      .search{ width:140px; }
+    /* --- Modal --- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .modal {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .modal h3 { margin-top: 0; color: var(--accent); font-size: 18px; }
+    .form-field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 14px; color: #374151; font-weight: 500; }
+    input[type="text"], textarea {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    .photo-block {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fafafa;
+      margin-bottom: 10px;
+    }
+    .photo-preview {
+      width: 100%;
+      max-height: 160px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      display: none;
+    }
+    .photo-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
     }
   </style>
 </head>
@@ -88,208 +167,264 @@
   <header>
     <h1>Список контекстов (GET /api/contexts)</h1>
     <div class="controls">
-      <input id="searchInput" class="search" placeholder="Поиск по title / text..." />
+      <input id="searchInput" class="search" placeholder="Поиск..." />
       <button id="refreshBtn" class="btn">Обновить</button>
-      <button id="showAllJsonBtn" class="btn secondary">Показать весь JSON</button>
     </div>
   </header>
 
   <main>
-    <div id="loader" class="empty">Загрузка данных...</div>
+    <div id="loader" class="empty">Загрузка...</div>
     <div id="list"></div>
-    <div id="allJsonContainer" style="display:none; margin-top:12px;">
-      <h3 style="margin:0 0 8px 0; color:#0f172a;">Весь JSON ответа</h3>
-      <pre id="allJson" class="json"></pre>
-    </div>
-    <div id="error" class="empty" style="display:none;"></div>
   </main>
 
   <script>
     const API_BASE = 'https://tezzy.kz';
     const ENDPOINT = API_BASE + '/api/contexts';
-
     const listEl = document.getElementById('list');
     const loaderEl = document.getElementById('loader');
-    const errorEl = document.getElementById('error');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const searchInput = document.getElementById('searchInput');
-    const showAllJsonBtn = document.getElementById('showAllJsonBtn');
-    const allJsonContainer = document.getElementById('allJsonContainer');
-    const allJsonPre = document.getElementById('allJson');
 
-    let lastResponse = null;
+    let lastResponse = [];
 
     async function fetchAndRender() {
       loaderEl.style.display = 'block';
-      loaderEl.textContent = 'Загрузка данных...';
-      errorEl.style.display = 'none';
+      loaderEl.textContent = 'Загрузка...';
       listEl.innerHTML = '';
-      allJsonContainer.style.display = 'none';
-
       try {
         const res = await fetch(ENDPOINT);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         lastResponse = data;
         renderList(data);
         loaderEl.style.display = 'none';
       } catch (err) {
-        loaderEl.style.display = 'none';
-        errorEl.style.display = 'block';
-        errorEl.textContent = 'Ошибка загрузки: ' + err.message;
+        loaderEl.textContent = 'Ошибка: ' + err.message;
       }
     }
 
-    async function deleteContext(id, cardEl) {
+    async function deleteContext(id, card) {
       if (!confirm(`Удалить контекст #${id}?`)) return;
-      try {
-        const res = await fetch(`${API_BASE}/api/contexts/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error(`Ошибка HTTP ${res.status}`);
-        cardEl.remove();
-        alert(`Контекст #${id} удалён`);
-      } catch (err) {
-        alert('Ошибка при удалении: ' + err.message);
-      }
+      const res = await fetch(`${API_BASE}/api/contexts/${id}`, { method: 'DELETE' });
+      if (res.ok) card.remove();
     }
 
-    function renderList(data){
+    function renderList(data) {
       listEl.innerHTML = '';
-      if (!Array.isArray(data) || data.length === 0) {
-        loaderEl.style.display = 'block';
-        loaderEl.textContent = 'Нет данных.';
-        return;
-      }
 
       data.forEach(item => {
         const card = document.createElement('div');
         card.className = 'card';
 
-        const titleText = item.title || (item.name || 'Без заголовка');
         const h2 = document.createElement('h2');
-        h2.textContent = titleText;
+        h2.textContent = item.title || 'Без названия';
 
-        // Кнопка удалить справа
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn danger';
-        deleteBtn.textContent = 'Удалить';
-        deleteBtn.onclick = () => deleteContext(item.id, card);
-        h2.appendChild(deleteBtn);
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '6px';
 
-        // meta
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        const parts = [];
-        if (item.id !== undefined) parts.push('id: ' + item.id);
-        if (item.created_at) parts.push('created: ' + item.created_at);
-        if (item.updated_at) parts.push('updated: ' + item.updated_at);
-        meta.textContent = parts.join(' • ');
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn edit';
+        editBtn.textContent = 'Изменить';
+        editBtn.onclick = () => openEditModal(item);
 
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn danger';
+        delBtn.textContent = 'Удалить';
+        delBtn.onclick = () => deleteContext(item.id, card);
+
+        actions.append(editBtn, delBtn);
+        h2.append(actions);
         card.appendChild(h2);
-        if (parts.length) card.appendChild(meta);
 
-        // fields
-        const fields = document.createElement('div');
-        fields.className = 'fields';
+        // универсальный вывод всех полей JSON
+        const contentDiv = document.createElement('div');
+        contentDiv.style.fontSize = '14px';
+        contentDiv.style.marginTop = '8px';
+        contentDiv.style.display = 'grid';
+        contentDiv.style.gap = '4px';
 
-        for (const key of Object.keys(item)) {
+        for (const [key, value] of Object.entries(item)) {
           if (key === 'photos') continue;
-          const keyEl = document.createElement('div');
-          keyEl.className = 'field-key';
-          keyEl.textContent = key;
-
-          const valueEl = document.createElement('div');
-          valueEl.className = 'field-value';
-          const val = item[key];
-
-          if (val === null || val === undefined) {
-            valueEl.textContent = '—';
-          } else if (typeof val === 'string') {
-            valueEl.textContent = val;
-          } else if (Array.isArray(val)) {
-            const ul = document.createElement('ul');
-            ul.style.margin = 0;
-            ul.style.paddingLeft = '18px';
-            val.forEach(v => {
-              const li = document.createElement('li');
-              li.textContent = typeof v === 'object' ? JSON.stringify(v) : String(v);
-              ul.appendChild(li);
-            });
-            valueEl.appendChild(ul);
-          } else if (typeof val === 'object') {
-            const pre = document.createElement('pre');
-            pre.className = 'json';
-            pre.textContent = JSON.stringify(val, null, 2);
-            valueEl.appendChild(pre);
-          } else {
-            valueEl.textContent = String(val);
-          }
-
-          fields.appendChild(keyEl);
-          fields.appendChild(valueEl);
+          const row = document.createElement('div');
+          row.innerHTML = `<b>${key}:</b> ${formatValue(value)}`;
+          contentDiv.appendChild(row);
         }
 
-        card.appendChild(fields);
+        card.appendChild(contentDiv);
 
-        // photos
-        if (Array.isArray(item.photos) && item.photos.length) {
-          const photosDiv = document.createElement('div');
-          photosDiv.className = 'photos';
-          item.photos.forEach(filename => {
-            if (!filename) return;
-            const a = document.createElement('a');
-            a.href = API_BASE + '/api/files/' + encodeURIComponent(filename);
-            a.target = '_blank';
+        if (item.photos && item.photos.length) {
+          const photoDiv = document.createElement('div');
+          photoDiv.className = 'photos';
+          item.photos.forEach(ph => {
             const img = document.createElement('img');
-            img.src = API_BASE + '/api/files/' + encodeURIComponent(filename);
-            a.appendChild(img);
-            photosDiv.appendChild(a);
+            img.src = API_BASE + '/api/files/' + ph;
+            photoDiv.appendChild(img);
           });
-          card.appendChild(photosDiv);
+          card.appendChild(photoDiv);
         }
 
-        // raw json toggle
-        const rawBtn = document.createElement('button');
-        rawBtn.className = 'btn secondary';
-        rawBtn.style.marginTop = '12px';
-        rawBtn.textContent = 'Показать JSON записи';
-        const pre = document.createElement('pre');
-        pre.className = 'json';
-        pre.style.display = 'none';
-        pre.textContent = JSON.stringify(item, null, 2);
-        rawBtn.onclick = () => {
-          pre.style.display = pre.style.display === 'none' ? 'block' : 'none';
-          rawBtn.textContent = pre.style.display === 'none' ? 'Показать JSON записи' : 'Скрыть JSON записи';
-        };
-
-        card.appendChild(rawBtn);
-        card.appendChild(pre);
         listEl.appendChild(card);
       });
     }
 
-    function applySearch() {
-      const q = searchInput.value.trim().toLowerCase();
-      if (!lastResponse) return;
-      if (!q) {
-        renderList(lastResponse);
-        return;
-      }
-      const filtered = lastResponse.filter(item => {
-        const title = (item.title || '').toString().toLowerCase();
-        const text = (item.text || '').toString().toLowerCase();
-        return title.includes(q) || text.includes(q) || (item.photos && item.photos.join(' ').toLowerCase().includes(q));
-      });
-      renderList(filtered);
+    function formatValue(value) {
+      if (Array.isArray(value)) return value.join(', ');
+      if (typeof value === 'object' && value !== null)
+        return `<pre style="margin:4px 0;background:#f3f4f6;padding:6px;border-radius:6px;">${JSON.stringify(value, null, 2)}</pre>`;
+      return value ?? '—';
     }
 
-    refreshBtn.onclick = fetchAndRender;
-    searchInput.oninput = applySearch;
-    showAllJsonBtn.onclick = () => {
-      if (!lastResponse) return;
-      allJsonPre.textContent = JSON.stringify(lastResponse, null, 2);
-      allJsonContainer.style.display = allJsonContainer.style.display === 'none' ? 'block' : 'none';
-      showAllJsonBtn.textContent = allJsonContainer.style.display === 'none' ? 'Показать весь JSON' : 'Скрыть весь JSON';
-    };
+    function openEditModal(item) {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      const photos = item.photos || [];
+
+      modal.innerHTML = `
+        <h3>Редактировать контекст #${item.id}</h3>
+        <div class="form-field">
+          <label>Заголовок (title)</label>
+          <input type="text" id="editTitle" value="${item.title || ''}">
+        </div>
+        <div class="form-field">
+          <label>Текст (text)</label>
+          <textarea id="editText">${item.text || ''}</textarea>
+        </div>
+        <div id="photoSection"></div>
+        <div class="modal-footer">
+          <button class="btn secondary" id="cancelBtn">Отмена</button>
+          <button class="btn edit" id="saveBtn">Сохранить</button>
+        </div>
+      `;
+
+      overlay.append(modal);
+      document.body.append(overlay);
+
+      const photoSection = modal.querySelector('#photoSection');
+
+      for (let i = 1; i <= 3; i++) {
+        const existing = photos[i - 1];
+        const block = document.createElement('div');
+        block.className = 'photo-block';
+        block.dataset.action = 'keep';
+
+        const label = document.createElement('label');
+        label.textContent = `Фото ${i}`;
+
+        const preview = document.createElement('img');
+        preview.className = 'photo-preview';
+        if (existing) {
+          preview.src = API_BASE + '/api/files/' + existing;
+          preview.style.display = 'block';
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'photo-actions';
+
+        const btnKeep = document.createElement('button');
+        btnKeep.className = 'btn secondary';
+        btnKeep.textContent = 'Оставить';
+        btnKeep.onclick = () => {
+          block.dataset.action = 'keep';
+          highlight(btnKeep, [btnKeep, btnReplace, btnDelete]);
+        };
+
+        const btnReplace = document.createElement('button');
+        btnReplace.className = 'btn';
+        btnReplace.textContent = 'Заменить';
+        btnReplace.onclick = () => fileInput.click();
+
+        const btnDelete = document.createElement('button');
+        btnDelete.className = 'btn danger';
+        btnDelete.textContent = 'Удалить';
+        btnDelete.onclick = () => {
+          preview.style.display = 'none';
+          block.dataset.action = 'delete';
+          highlight(btnDelete, [btnKeep, btnReplace, btnDelete]);
+        };
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+        fileInput.onchange = async e => {
+          const file = e.target.files[0];
+          if (file) {
+            const base64 = await fileToBase64(file);
+            preview.src = URL.createObjectURL(file);
+            preview.style.display = 'block';
+            block.dataset.base64 = base64;
+            block.dataset.action = 'replace';
+            highlight(btnReplace, [btnKeep, btnReplace, btnDelete]);
+          }
+        };
+
+        actions.append(btnKeep, btnReplace, btnDelete);
+        block.append(label, preview, fileInput, actions);
+        photoSection.append(block);
+        highlight(btnKeep, [btnKeep, btnReplace, btnDelete]);
+      }
+
+      modal.querySelector('#cancelBtn').onclick = () => overlay.remove();
+
+      modal.querySelector('#saveBtn').onclick = async () => {
+        const title = modal.querySelector('#editTitle').value.trim();
+        const text = modal.querySelector('#editText').value.trim();
+        const photoBlocks = modal.querySelectorAll('.photo-block');
+
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('text', text);
+
+        photoBlocks.forEach((block, idx) => {
+          const i = idx + 1;
+          const action = block.dataset.action;
+          if (action === 'delete') {
+            formData.append(`photo${i}`, '');
+          } else if (action === 'replace') {
+            const base64 = block.dataset.base64;
+            const blob = base64ToBlob(base64, 'image/jpeg');
+            formData.append(`photo${i}`, blob, `photo${i}.jpg`);
+          }
+        });
+
+        try {
+          const res = await fetch(`${API_BASE}/api/contexts/${item.id}`, {
+            method: 'PUT',
+            body: formData
+          });
+          if (!res.ok) throw new Error('Ошибка ' + res.status);
+          alert('Контекст успешно обновлён!');
+          overlay.remove();
+          fetchAndRender();
+        } catch (e) {
+          alert('Ошибка: ' + e.message);
+        }
+      };
+    }
+
+    function highlight(activeBtn, allBtns) {
+      allBtns.forEach(b => (b.style.opacity = b === activeBtn ? '1' : '0.5'));
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function base64ToBlob(base64, mime) {
+      const byteChars = atob(base64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNumbers[i] = byteChars.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: mime });
+    }
 
     fetchAndRender();
   </script>
