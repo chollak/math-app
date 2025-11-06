@@ -416,7 +416,394 @@ const questionController = {
       console.error('Error in deleteQuestion:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
+  },
+
+  // PATCH - частичное обновление вопроса
+  patchQuestion: (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({ error: 'Valid question ID is required' });
+      }
+
+      const {
+        question_ru,
+        question_kz,
+        question,
+        language,
+        answer,
+        level,
+        topic,
+        context_id,
+        clearPhotos
+      } = req.body;
+
+      Question.findById(parseInt(id), (err, existing) => {
+        if (err) {
+          console.error('Error finding question:', err);
+          return res.status(500).json({ error: 'Failed to find question' });
+        }
+        
+        if (!existing) {
+          return res.status(404).json({ error: 'Question not found' });
+        }
+
+        // Определяем тексты вопроса
+        let finalQuestionRu = existing.question_ru;
+        let finalQuestionKz = existing.question_kz;
+        let finalLanguage = existing.language;
+
+        if (question_ru !== undefined) finalQuestionRu = question_ru;
+        if (question_kz !== undefined) finalQuestionKz = question_kz;
+        if (language !== undefined) finalLanguage = language;
+
+        // Support new format: question + language
+        if (question && language) {
+          if (language === 'kz') {
+            finalQuestionKz = question;
+          } else {
+            finalQuestionRu = question;
+          }
+        }
+
+        // Обновляем только переданные поля
+        const questionData = {
+          question_ru: finalQuestionRu,
+          question_kz: finalQuestionKz,
+          language: finalLanguage,
+          answer: answer !== undefined ? answer : existing.answer,
+          level: level !== undefined ? parseInt(level) : existing.level,
+          topic: topic !== undefined ? topic : existing.topic,
+          photos: existing.photos || [],
+          context_id: context_id !== undefined ? (context_id ? parseInt(context_id) : null) : existing.context_id
+        };
+
+        // Управление фотографиями через PATCH
+        if (clearPhotos === true) {
+          // Очищаем фотографии
+          deletePhysicalFiles(existing.photos || []);
+          questionData.photos = [];
+        } else if (req.files && Object.keys(req.files).length > 0) {
+          // Заменяем фотографии
+          deletePhysicalFiles(existing.photos || []);
+          questionData.photos = extractPhotosFromRequest(req.files);
+        }
+
+        Question.update(parseInt(id), questionData, (err, updatedQuestion) => {
+          if (err) {
+            console.error('Error updating question:', err);
+            if (err.message === 'Question not found') {
+              return res.status(404).json({ error: 'Question not found' });
+            }
+            return res.status(500).json({ error: 'Failed to update question' });
+          }
+
+          res.json(keysToCamel(updatedQuestion));
+        });
+      });
+
+    } catch (error) {
+      console.error('Error in patchQuestion:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+
+  // Получить список фотографий вопроса
+  getQuestionPhotos: (req, res) => {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Valid question ID is required' });
+    }
+    
+    Question.findById(parseInt(id), (err, question) => {
+      if (err) {
+        console.error('Error finding question:', err);
+        return res.status(500).json({ error: 'Failed to find question' });
+      }
+      
+      if (!question) {
+        return res.status(404).json({ error: 'Question not found' });
+      }
+      
+      res.json(keysToCamel({
+        questionId: id,
+        photos: question.photos || [],
+        count: (question.photos || []).length
+      }));
+    });
+  },
+
+  // Добавить фотографии к существующим
+  addQuestionPhotos: (req, res) => {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Valid question ID is required' });
+    }
+    
+    if (!req.files || Object.keys(req.files).length === 0) {
+      return res.status(400).json({ error: 'No photos provided' });
+    }
+    
+    Question.findById(parseInt(id), (err, question) => {
+      if (err) {
+        console.error('Error finding question:', err);
+        return res.status(500).json({ error: 'Failed to find question' });
+      }
+      
+      if (!question) {
+        return res.status(404).json({ error: 'Question not found' });
+      }
+      
+      const newPhotos = extractPhotosFromRequest(req.files);
+      const existingPhotos = question.photos || [];
+      const maxPhotos = 5;
+      
+      if (existingPhotos.length + newPhotos.length > maxPhotos) {
+        return res.status(400).json({ 
+          error: `Maximum ${maxPhotos} photos allowed. Current: ${existingPhotos.length}` 
+        });
+      }
+      
+      const updatedPhotos = [...existingPhotos, ...newPhotos];
+      
+      const questionData = {
+        question_ru: question.question_ru,
+        question_kz: question.question_kz,
+        language: question.language,
+        answer: question.answer,
+        level: question.level,
+        topic: question.topic,
+        photos: updatedPhotos,
+        context_id: question.context_id
+      };
+      
+      Question.update(parseInt(id), questionData, (err, result) => {
+        if (err) {
+          console.error('Error adding photos:', err);
+          return res.status(500).json({ error: 'Failed to add photos' });
+        }
+        
+        res.json(keysToCamel({
+          message: 'Photos added successfully',
+          addedPhotos: newPhotos,
+          totalPhotos: updatedPhotos.length,
+          photos: updatedPhotos
+        }));
+      });
+    });
+  },
+
+  // Заменить все фотографии
+  replaceQuestionPhotos: (req, res) => {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Valid question ID is required' });
+    }
+    
+    Question.findById(parseInt(id), (err, question) => {
+      if (err) {
+        console.error('Error finding question:', err);
+        return res.status(500).json({ error: 'Failed to find question' });
+      }
+      
+      if (!question) {
+        return res.status(404).json({ error: 'Question not found' });
+      }
+      
+      // Удаляем старые файлы
+      const oldPhotos = question.photos || [];
+      if (oldPhotos.length > 0) {
+        deletePhysicalFiles(oldPhotos);
+      }
+      
+      const newPhotos = req.files ? extractPhotosFromRequest(req.files) : [];
+      
+      const questionData = {
+        question_ru: question.question_ru,
+        question_kz: question.question_kz,
+        language: question.language,
+        answer: question.answer,
+        level: question.level,
+        topic: question.topic,
+        photos: newPhotos,
+        context_id: question.context_id
+      };
+      
+      Question.update(parseInt(id), questionData, (err, result) => {
+        if (err) {
+          console.error('Error replacing photos:', err);
+          return res.status(500).json({ error: 'Failed to replace photos' });
+        }
+        
+        res.json(keysToCamel({
+          message: 'Photos replaced successfully',
+          removedPhotos: oldPhotos,
+          newPhotos: newPhotos,
+          totalPhotos: newPhotos.length
+        }));
+      });
+    });
+  },
+
+  // Удалить все фотографии
+  deleteAllQuestionPhotos: (req, res) => {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Valid question ID is required' });
+    }
+    
+    Question.findById(parseInt(id), (err, question) => {
+      if (err) {
+        console.error('Error finding question:', err);
+        return res.status(500).json({ error: 'Failed to find question' });
+      }
+      
+      if (!question) {
+        return res.status(404).json({ error: 'Question not found' });
+      }
+      
+      const oldPhotos = question.photos || [];
+      
+      if (oldPhotos.length === 0) {
+        return res.json(keysToCamel({
+          message: 'No photos to delete',
+          removedPhotos: []
+        }));
+      }
+      
+      // Удаляем физические файлы
+      deletePhysicalFiles(oldPhotos);
+      
+      const questionData = {
+        question_ru: question.question_ru,
+        question_kz: question.question_kz,
+        language: question.language,
+        answer: question.answer,
+        level: question.level,
+        topic: question.topic,
+        photos: [],
+        context_id: question.context_id
+      };
+      
+      Question.update(parseInt(id), questionData, (err, result) => {
+        if (err) {
+          console.error('Error deleting photos:', err);
+          return res.status(500).json({ error: 'Failed to delete photos' });
+        }
+        
+        res.json(keysToCamel({
+          message: 'All photos deleted successfully',
+          removedPhotos: oldPhotos,
+          totalPhotos: 0
+        }));
+      });
+    });
+  },
+
+  // Удалить конкретную фотографию
+  deleteQuestionPhoto: (req, res) => {
+    const { id, filename } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Valid question ID is required' });
+    }
+    
+    Question.findById(parseInt(id), (err, question) => {
+      if (err) {
+        console.error('Error finding question:', err);
+        return res.status(500).json({ error: 'Failed to find question' });
+      }
+      
+      if (!question) {
+        return res.status(404).json({ error: 'Question not found' });
+      }
+      
+      const photos = question.photos || [];
+      const photoIndex = photos.findIndex(photo => photo === filename);
+      
+      if (photoIndex === -1) {
+        return res.status(404).json({ error: 'Photo not found' });
+      }
+      
+      // Удаляем физический файл
+      deletePhysicalFiles([filename]);
+      
+      // Удаляем из массива
+      photos.splice(photoIndex, 1);
+      
+      const questionData = {
+        question_ru: question.question_ru,
+        question_kz: question.question_kz,
+        language: question.language,
+        answer: question.answer,
+        level: question.level,
+        topic: question.topic,
+        photos: photos,
+        context_id: question.context_id
+      };
+      
+      Question.update(parseInt(id), questionData, (err, result) => {
+        if (err) {
+          console.error('Error deleting photo:', err);
+          return res.status(500).json({ error: 'Failed to delete photo' });
+        }
+        
+        res.json(keysToCamel({
+          message: 'Photo deleted successfully',
+          removedPhoto: filename,
+          remainingPhotos: photos,
+          totalPhotos: photos.length
+        }));
+      });
+    });
   }
 };
+
+// Вспомогательная функция для извлечения фотографий из запроса
+function extractPhotosFromRequest(files) {
+  const photos = [];
+  
+  if (!files) return photos;
+  
+  // Поддержка полей photo1, photo2, photo3
+  ['photo1', 'photo2', 'photo3'].forEach(fieldName => {
+    if (files[fieldName] && files[fieldName][0]) {
+      photos.push(files[fieldName][0].filename);
+    }
+  });
+  
+  // Поддержка массива photos[]
+  if (files.photos) {
+    files.photos.forEach(file => {
+      photos.push(file.filename);
+    });
+  }
+  
+  return photos;
+}
+
+// Вспомогательная функция для удаления физических файлов
+function deletePhysicalFiles(filenames) {
+  const fs = require('fs');
+  const path = require('path');
+  
+  if (!filenames || filenames.length === 0) return;
+  
+  filenames.forEach(filename => {
+    const filePath = path.join(__dirname, '../../database/uploads', filename);
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error(`Failed to delete file ${filename}:`, err);
+      } else {
+        console.log(`Deleted file: ${filename}`);
+      }
+    });
+  });
+}
 
 module.exports = questionController;

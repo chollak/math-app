@@ -26,6 +26,11 @@ class PostmanCollectionGenerator {
           key: "device_id",
           value: "{{device_id}}",
           type: "string"
+        },
+        {
+          key: "photo_filename",
+          value: "test-photo.jpg",
+          type: "string"
         }
       ],
       item: []
@@ -401,6 +406,199 @@ pm.test("Response has correct Content-Type", function () {
           ]
         },
         {
+          name: "Update Question (PATCH) - Text Only",
+          request: {
+            method: "PATCH",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                "question_ru": "Updated question text via PATCH"
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/questions/{{test_question_id}}",
+              host: ["{{base_url}}"],
+              path: ["api", "questions", "{{test_question_id}}"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Question updated partially', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.question).to.include('Updated question text via PATCH');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Question Photos",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/questions/{{test_question_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "questions", "{{test_question_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Response has photos array', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('photos');",
+                  "    pm.expect(response.photos).to.be.an('array');",
+                  "    pm.expect(response).to.have.property('count');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Add Photos to Question",
+          request: {
+            method: "POST",
+            header: [],
+            body: {
+              mode: "formdata",
+              formdata: [
+                {
+                  key: "photo1",
+                  type: "file",
+                  src: []
+                }
+              ]
+            },
+            url: {
+              raw: "{{base_url}}/api/questions/{{test_question_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "questions", "{{test_question_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Photos added successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include('added successfully');",
+                  "    pm.expect(response.addedPhotos).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Replace All Question Photos",
+          request: {
+            method: "PUT",
+            header: [],
+            body: {
+              mode: "formdata",
+              formdata: [
+                {
+                  key: "photo1",
+                  type: "file",
+                  src: []
+                }
+              ]
+            },
+            url: {
+              raw: "{{base_url}}/api/questions/{{test_question_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "questions", "{{test_question_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Photos replaced successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include('replaced successfully');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Delete All Question Photos",
+          request: {
+            method: "DELETE",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/questions/{{test_question_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "questions", "{{test_question_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('All photos deleted', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include('deleted successfully');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Delete Specific Question Photo",
+          request: {
+            method: "DELETE",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/questions/{{test_question_id}}/photos/{{photo_filename}}",
+              host: ["{{base_url}}"],
+              path: ["api", "questions", "{{test_question_id}}", "photos", "{{photo_filename}}"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 or 404', function () {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           name: "Delete Question",
           request: {
             method: "DELETE", 
@@ -551,6 +749,244 @@ pm.test("Response has correct Content-Type", function () {
           ]
         },
         {
+          name: "Update Context (PATCH) - Text Only",
+          request: {
+            method: "PATCH",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                "text": "Updated context text via PATCH"
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/contexts/{{test_context_id}}",
+              host: ["{{base_url}}"],
+              path: ["api", "contexts", "{{test_context_id}}"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Context updated partially', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.text).to.equal('Updated context text via PATCH');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Update Context (PATCH) - Clear Photos",
+          request: {
+            method: "PATCH",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                "title": "Updated title",
+                "clearPhotos": true
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/contexts/{{test_context_id}}",
+              host: ["{{base_url}}"],
+              path: ["api", "contexts", "{{test_context_id}}"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Photos cleared', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.photos).to.be.an('array').that.is.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Context Photos",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/contexts/{{test_context_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "contexts", "{{test_context_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Response has photos array', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('photos');",
+                  "    pm.expect(response.photos).to.be.an('array');",
+                  "    pm.expect(response).to.have.property('count');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Add Photos to Context",
+          request: {
+            method: "POST",
+            header: [],
+            body: {
+              mode: "formdata",
+              formdata: [
+                {
+                  key: "photo1",
+                  type: "file",
+                  src: []
+                },
+                {
+                  key: "photo2",
+                  type: "file", 
+                  src: []
+                }
+              ]
+            },
+            url: {
+              raw: "{{base_url}}/api/contexts/{{test_context_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "contexts", "{{test_context_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Photos added successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include('added successfully');",
+                  "    pm.expect(response.addedPhotos).to.be.an('array');",
+                  "    pm.expect(response.addedPhotos.length).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Replace All Context Photos",
+          request: {
+            method: "PUT",
+            header: [],
+            body: {
+              mode: "formdata",
+              formdata: [
+                {
+                  key: "photo1",
+                  type: "file",
+                  src: []
+                }
+              ]
+            },
+            url: {
+              raw: "{{base_url}}/api/contexts/{{test_context_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "contexts", "{{test_context_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Photos replaced successfully', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include('replaced successfully');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Delete All Context Photos",
+          request: {
+            method: "DELETE",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/contexts/{{test_context_id}}/photos",
+              host: ["{{base_url}}"],
+              path: ["api", "contexts", "{{test_context_id}}", "photos"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('All photos deleted', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include('deleted successfully');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Delete Specific Context Photo",
+          request: {
+            method: "DELETE",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/contexts/{{test_context_id}}/photos/{{photo_filename}}",
+              host: ["{{base_url}}"],
+              path: ["api", "contexts", "{{test_context_id}}", "photos", "{{photo_filename}}"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 or 404', function () {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           name: "Delete Context",
           request: {
             method: "DELETE",
@@ -617,7 +1053,7 @@ pm.test("Response has correct Content-Type", function () {
   generateExamsFolder() {
     return {
       name: "🎯 Exams",
-      description: "Exam system with automatic scoring and structured 40-question exams",
+      description: "🎯 Advanced exam system with structured 40-question tests, smart scoring, and comprehensive validation. Features:\n\n📍 **Position-Based Question Types:**\n• 1-15: Simple questions (level 1, 4 options, 1 point)\n• 16-25: Complex questions (level 2, 4 options, 1 point) \n• 26-30: Context questions (shared context, 4 options, 1 point)\n• 31-35: Matching questions (suboptions, format: A1B2, 2 points)\n• 36-40: Multiple choice (6 options, format: A,C,E, 2 points)\n\n🏆 **Advanced Scoring Rules:**\n• Simple/Complex/Context: 1 point for correct answer\n• Matching: 1 из 2 = 1 балл, 2 из 2 = 2 балла\n• Multiple: Complex scoring based on correct/selected ratio\n\n🔍 **Answer Format Validation:**\n• Simple: Single letter (A, B, C, D)\n• Matching: Letter-number pairs (A1B2C3)\n• Multiple: Comma-separated (A,C,E)\n\n📊 **Maximum Score: 50 points** (30 + 10 + 10)",
       item: [
         {
           name: "Check Exam Readiness",
@@ -652,6 +1088,226 @@ pm.test("Response has correct Content-Type", function () {
                   "    pm.expect(response).to.have.property('typeCoverage');",
                   "    pm.expect(response).to.have.property('recommendedActions');",
                   "    pm.expect(response).to.have.property('summary');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "🚀 Complete Structured Exam Workflow",
+          request: {
+            method: "GET",
+            header: [
+              {
+                key: "Accept-Language",
+                value: "ru",
+                type: "text"
+              }
+            ],
+            url: {
+              raw: "{{base_url}}/api/exams/readiness",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "readiness"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('🔍 Database readiness check', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.isReady, 'Database should be ready for structured exams').to.be.true;",
+                  "    ",
+                  "    console.log('📊 Readiness Score:', response.summary.readinessScore + '%');",
+                  "    console.log('📝 Total Topics Covered:', Object.keys(response.topicCoverage).length);",
+                  "    console.log('🎯 Recommended Actions:', response.recommendedActions.length);",
+                  "    ",
+                  "    // Auto-proceed to next request if ready",
+                  "    if (response.isReady) {",
+                  "        postman.setNextRequest('Start Structured 40-Question Exam');",
+                  "    } else {",
+                  "        postman.setNextRequest(null);",
+                  "        console.error('❌ Database not ready for structured exams!');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "🧪 Scoring System Test Suite",
+          request: {
+            method: "POST",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              },
+              {
+                key: "Accept-Language",
+                value: "ru",
+                type: "text"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                deviceId: "{{device_id}}",
+                questionCount: 40,
+                filters: {}
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/exams/start",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "start"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('🧪 Create test exam for scoring validation', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('examId');",
+                  "    pm.expect(response.totalQuestions).to.equal(40);",
+                  "    pm.collectionVariables.set('scoring_test_exam_id', response.examId);",
+                  "    ",
+                  "    console.log('🎯 Created test exam for scoring system validation');",
+                  "    postman.setNextRequest('Test All Answer Format Scoring');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Test All Answer Format Scoring",
+          request: {
+            method: "POST",
+            header: [
+              {
+                key: "Content-Type",
+                value: "application/json"
+              }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                deviceId: "{{device_id}}",
+                answers: [
+                  // Simple questions (1-15): 1 point each
+                  { questionId: 1, answer: "A" },
+                  { questionId: 2, answer: "B" },
+                  { questionId: 3, answer: "C" },
+                  { questionId: 4, answer: "D" },
+                  { questionId: 5, answer: "A" },
+                  { questionId: 6, answer: "B" },
+                  { questionId: 7, answer: "C" },
+                  { questionId: 8, answer: "D" },
+                  { questionId: 9, answer: "A" },
+                  { questionId: 10, answer: "B" },
+                  { questionId: 11, answer: "C" },
+                  { questionId: 12, answer: "D" },
+                  { questionId: 13, answer: "A" },
+                  { questionId: 14, answer: "B" },
+                  { questionId: 15, answer: "C" },
+                  // Complex questions (16-25): 1 point each
+                  { questionId: 16, answer: "D" },
+                  { questionId: 17, answer: "A" },
+                  { questionId: 18, answer: "B" },
+                  { questionId: 19, answer: "C" },
+                  { questionId: 20, answer: "D" },
+                  { questionId: 21, answer: "A" },
+                  { questionId: 22, answer: "B" },
+                  { questionId: 23, answer: "C" },
+                  { questionId: 24, answer: "D" },
+                  { questionId: 25, answer: "A" },
+                  // Context questions (26-30): 1 point each
+                  { questionId: 26, answer: "B" },
+                  { questionId: 27, answer: "C" },
+                  { questionId: 28, answer: "D" },
+                  { questionId: 29, answer: "A" },
+                  { questionId: 30, answer: "B" },
+                  // Matching questions (31-35): 2 points each
+                  { questionId: 31, answer: "A1B2" },    // Full match: 2 points
+                  { questionId: 32, answer: "A1B3" },    // Partial match: 1 point
+                  { questionId: 33, answer: "A1B2C3" },  // Full match: 2 points
+                  { questionId: 34, answer: "A3B4" },    // No match: 0 points
+                  { questionId: 35, answer: "A1" },      // Single match: 1 point
+                  // Multiple choice questions (36-40): 2 points each
+                  { questionId: 36, answer: "A,B,C" },   // 3 из 3: 2 points
+                  { questionId: 37, answer: "A,B" },     // 2 из 2: 2 points
+                  { questionId: 38, answer: "A" },       // 1 из 1: 2 points
+                  { questionId: 39, answer: "A,B,D" },   // 2 из 3: 1 point
+                  { questionId: 40, answer: "A,E,F" }    // 1 из 3: 0 points
+                ]
+              }, null, 2)
+            },
+            url: {
+              raw: "{{base_url}}/api/exams/{{scoring_test_exam_id}}/submit",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "{{scoring_test_exam_id}}", "submit"]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('🧮 Scoring system validation', function () {",
+                  "    const response = pm.response.json();",
+                  "    const exam = response.exam;",
+                  "    const questions = response.questions;",
+                  "    ",
+                  "    // Expected max points for structured 40-question exam",
+                  "    const expectedMaxPoints = 50; // 30*1 + 5*2 + 5*2",
+                  "    ",
+                  "    pm.expect(exam).to.have.property('totalPoints');",
+                  "    pm.expect(exam).to.have.property('maxPossiblePoints');",
+                  "    pm.expect(exam.maxPossiblePoints).to.equal(expectedMaxPoints);",
+                  "    ",
+                  "    console.log('📊 Total Points Earned:', exam.totalPoints);",
+                  "    console.log('📊 Max Possible Points:', exam.maxPossiblePoints);",
+                  "    console.log('📊 Percentage:', exam.percentage + '%');",
+                  "    ",
+                  "    // Validate question-specific scoring",
+                  "    const simpleQuestions = questions.filter(q => q.questionOrder >= 1 && q.questionOrder <= 30);",
+                  "    const matchingQuestions = questions.filter(q => q.questionOrder >= 31 && q.questionOrder <= 35);",
+                  "    const multipleQuestions = questions.filter(q => q.questionOrder >= 36 && q.questionOrder <= 40);",
+                  "    ",
+                  "    console.log('🔢 Simple questions max points:', simpleQuestions.reduce((sum, q) => sum + q.maxPoints, 0));",
+                  "    console.log('🔗 Matching questions max points:', matchingQuestions.reduce((sum, q) => sum + q.maxPoints, 0));",
+                  "    console.log('✅ Multiple questions max points:', multipleQuestions.reduce((sum, q) => sum + q.maxPoints, 0));",
+                  "});",
+                  "",
+                  "pm.test('📝 Answer format processing verification', function () {",
+                  "    const response = pm.response.json();",
+                  "    const questions = response.questions;",
+                  "    ",
+                  "    // Check specific answer formats were processed",
+                  "    const matchingQ31 = questions.find(q => q.questionOrder === 31);",
+                  "    const multipleQ36 = questions.find(q => q.questionOrder === 36);",
+                  "    ",
+                  "    if (matchingQ31) {",
+                  "        pm.expect(matchingQ31.userAnswer).to.include('A1B2');",
+                  "        console.log('🔗 Matching answer format (Q31):', matchingQ31.userAnswer);",
+                  "    }",
+                  "    ",
+                  "    if (multipleQ36) {",
+                  "        pm.expect(multipleQ36.userAnswer).to.include(',');",
+                  "        console.log('✅ Multiple choice format (Q36):', multipleQ36.userAnswer);",
+                  "    }",
                   "});"
                 ]
               }
@@ -694,16 +1350,26 @@ pm.test("Response has correct Content-Type", function () {
                 exec: [
                   this.globalTests,
                   "",
-                  "pm.test('Structured exam started successfully', function () {",
+                  "pm.test('🎯 Structured exam created successfully', function () {",
                   "    const response = pm.response.json();",
                   "    pm.expect(response).to.have.property('examId');",
                   "    pm.expect(response).to.have.property('totalQuestions');",
-                  "    pm.expect(response.totalQuestions).to.equal(40);",
+                  "    pm.expect(response.totalQuestions, '40 questions required').to.equal(40);",
                   "    pm.expect(response).to.have.property('isStructured');",
-                  "    pm.expect(response.isStructured).to.be.true;",
+                  "    pm.expect(response.isStructured, 'Should be structured exam').to.be.true;",
+                  "    ",
+                  "    console.log('📝 Exam ID:', response.examId);",
+                  "    console.log('📊 Total Questions:', response.totalQuestions);",
+                  "    console.log('🏗️ Is Structured:', response.isStructured);",
+                  "    if (response.contextUsed) {",
+                  "        console.log('📚 Context Used:', response.contextUsed);",
+                  "    }",
                   "    ",
                   "    // Save structured exam ID",
                   "    pm.collectionVariables.set('structured_exam_id', response.examId);",
+                  "    ",
+                  "    // Auto-proceed to validation",
+                  "    postman.setNextRequest('Validate Structured Exam Questions');",
                   "});"
                 ]
               }
