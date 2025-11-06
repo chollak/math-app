@@ -15,6 +15,7 @@
     "postman:test": "newman run postman/collections/math-app-api.postman_collection.json -e postman/environments/local.postman_environment.json",
     "postman:test-prod": "newman run postman/collections/math-app-api.postman_collection.json -e postman/environments/production.postman_environment.json",
     "setup:hooks": "bash scripts/install-hooks.sh",
+    "lint:claude": "claude -p 'you are a linter. please look at the changes vs. main and report any issues related to typos. report the filename and line number on one line, and a description of the issue on the second line. do not return any other text.'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
