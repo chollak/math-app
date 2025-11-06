@@ -220,21 +220,25 @@
         actions.style.display = 'flex';
         actions.style.gap = '6px';
 
-        const editBtn = document.createElement('button');
-        editBtn.className = 'btn edit';
-        editBtn.textContent = 'Изменить';
-        editBtn.onclick = () => openEditModal(item);
+        const editTextBtn = document.createElement('button');
+        editTextBtn.className = 'btn edit';
+        editTextBtn.textContent = 'Изменить текст';
+        editTextBtn.onclick = () => openEditTextModal(item);
+
+        const editPhotoBtn = document.createElement('button');
+        editPhotoBtn.className = 'btn';
+        editPhotoBtn.textContent = 'Изменить фото';
+        editPhotoBtn.onclick = () => openEditPhotosModal(item);
 
         const delBtn = document.createElement('button');
         delBtn.className = 'btn danger';
         delBtn.textContent = 'Удалить';
         delBtn.onclick = () => deleteContext(item.id, card);
 
-        actions.append(editBtn, delBtn);
+        actions.append(editTextBtn, editPhotoBtn, delBtn);
         h2.append(actions);
         card.appendChild(h2);
 
-        // универсальный вывод всех полей JSON
         const contentDiv = document.createElement('div');
         contentDiv.style.fontSize = '14px';
         contentDiv.style.marginTop = '8px';
@@ -272,16 +276,13 @@
       return value ?? '—';
     }
 
-    function openEditModal(item) {
+    function openEditTextModal(item) {
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
-
       const modal = document.createElement('div');
       modal.className = 'modal';
-      const photos = item.photos || [];
-
       modal.innerHTML = `
-        <h3>Редактировать контекст #${item.id}</h3>
+        <h3>Изменить текст контекста #${item.id}</h3>
         <div class="form-field">
           <label>Заголовок (title)</label>
           <input type="text" id="editTitle" value="${item.title || ''}">
@@ -290,10 +291,51 @@
           <label>Текст (text)</label>
           <textarea id="editText">${item.text || ''}</textarea>
         </div>
+        <div class="modal-footer">
+          <button class="btn secondary" id="cancelBtn">Отмена</button>
+          <button class="btn edit" id="saveTextBtn">Сохранить</button>
+        </div>
+      `;
+      overlay.append(modal);
+      document.body.append(overlay);
+
+      modal.querySelector('#cancelBtn').onclick = () => overlay.remove();
+      modal.querySelector('#saveTextBtn').onclick = async () => {
+        const title = modal.querySelector('#editTitle').value.trim();
+        const text = modal.querySelector('#editText').value.trim();
+
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('text', text);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/contexts/${item.id}`, {
+            method: 'PATCH',
+            body: formData
+          });
+          if (!res.ok) throw new Error('Ошибка ' + res.status);
+          alert('Текст успешно изменён!');
+          overlay.remove();
+          fetchAndRender();
+        } catch (e) {
+          alert('Ошибка: ' + e.message);
+        }
+      };
+    }
+
+    function openEditPhotosModal(item) {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      const photos = item.photos || [];
+
+      modal.innerHTML = `
+        <h3>Изменить фото контекста #${item.id}</h3>
         <div id="photoSection"></div>
         <div class="modal-footer">
           <button class="btn secondary" id="cancelBtn">Отмена</button>
-          <button class="btn edit" id="saveBtn">Сохранить</button>
+          <button class="btn edit" id="savePhotosBtn">Сохранить фото</button>
         </div>
       `;
 
@@ -318,112 +360,46 @@
           preview.style.display = 'block';
         }
 
-        const actions = document.createElement('div');
-        actions.className = 'photo-actions';
-
-        const btnKeep = document.createElement('button');
-        btnKeep.className = 'btn secondary';
-        btnKeep.textContent = 'Оставить';
-        btnKeep.onclick = () => {
-          block.dataset.action = 'keep';
-          highlight(btnKeep, [btnKeep, btnReplace, btnDelete]);
-        };
-
-        const btnReplace = document.createElement('button');
-        btnReplace.className = 'btn';
-        btnReplace.textContent = 'Заменить';
-        btnReplace.onclick = () => fileInput.click();
-
-        const btnDelete = document.createElement('button');
-        btnDelete.className = 'btn danger';
-        btnDelete.textContent = 'Удалить';
-        btnDelete.onclick = () => {
-          preview.style.display = 'none';
-          block.dataset.action = 'delete';
-          highlight(btnDelete, [btnKeep, btnReplace, btnDelete]);
-        };
-
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
-        fileInput.style.display = 'none';
-        fileInput.onchange = async e => {
+        fileInput.style.display = 'block';
+        fileInput.onchange = e => {
           const file = e.target.files[0];
           if (file) {
-            const base64 = await fileToBase64(file);
             preview.src = URL.createObjectURL(file);
             preview.style.display = 'block';
-            block.dataset.base64 = base64;
-            block.dataset.action = 'replace';
-            highlight(btnReplace, [btnKeep, btnReplace, btnDelete]);
+            block.dataset.file = file;
           }
         };
 
-        actions.append(btnKeep, btnReplace, btnDelete);
-        block.append(label, preview, fileInput, actions);
+        block.append(label, preview, fileInput);
         photoSection.append(block);
-        highlight(btnKeep, [btnKeep, btnReplace, btnDelete]);
       }
 
       modal.querySelector('#cancelBtn').onclick = () => overlay.remove();
-
-      modal.querySelector('#saveBtn').onclick = async () => {
-        const title = modal.querySelector('#editTitle').value.trim();
-        const text = modal.querySelector('#editText').value.trim();
-        const photoBlocks = modal.querySelectorAll('.photo-block');
-
+      modal.querySelector('#savePhotosBtn').onclick = async () => {
+        const blocks = modal.querySelectorAll('.photo-block');
         const formData = new FormData();
-        formData.append('title', title);
-        formData.append('text', text);
 
-        photoBlocks.forEach((block, idx) => {
-          const i = idx + 1;
-          const action = block.dataset.action;
-          if (action === 'delete') {
-            formData.append(`photo${i}`, '');
-          } else if (action === 'replace') {
-            const base64 = block.dataset.base64;
-            const blob = base64ToBlob(base64, 'image/jpeg');
-            formData.append(`photo${i}`, blob, `photo${i}.jpg`);
-          }
+        blocks.forEach((block, idx) => {
+          const file = block.dataset.file ? block.querySelector('input[type=file]').files[0] : null;
+          if (file) formData.append(`photo${idx + 1}`, file);
         });
 
         try {
-          const res = await fetch(`${API_BASE}/api/contexts/${item.id}`, {
+          const res = await fetch(`${API_BASE}/api/contexts/${item.id}/photos`, {
             method: 'PUT',
             body: formData
           });
           if (!res.ok) throw new Error('Ошибка ' + res.status);
-          alert('Контекст успешно обновлён!');
+          alert('Фото успешно обновлены!');
           overlay.remove();
           fetchAndRender();
         } catch (e) {
           alert('Ошибка: ' + e.message);
         }
       };
-    }
-
-    function highlight(activeBtn, allBtns) {
-      allBtns.forEach(b => (b.style.opacity = b === activeBtn ? '1' : '0.5'));
-    }
-
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function base64ToBlob(base64, mime) {
-      const byteChars = atob(base64);
-      const byteNumbers = new Array(byteChars.length);
-      for (let i = 0; i < byteChars.length; i++) {
-        byteNumbers[i] = byteChars.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      return new Blob([byteArray], { type: mime });
     }
 
     fetchAndRender();
