@@ -387,6 +387,396 @@ class Question {
       });
     });
   }
+
+  /**
+   * OPTIMIZED METHODS FOR EXAM START PERFORMANCE
+   * These methods replace the inefficient Question.findAll() calls
+   */
+
+  /**
+   * Find questions by topic and level (optimized for structured exams)
+   * @param {string} topic - Question topic
+   * @param {number} level - Question level (1=simple, 2=complex)
+   * @param {string} language - Language preference ('ru', 'kz')
+   * @param {number} limit - Maximum questions to return
+   * @param {Function} callback - Callback function
+   */
+  static findByTopicAndLevel(topic, level, language = 'ru', limit = 50, callback) {
+    // Handle optional parameters
+    if (typeof language === 'function') {
+      callback = language;
+      language = 'ru';
+      limit = 50;
+    }
+    if (typeof limit === 'function') {
+      callback = limit;
+      limit = 50;
+    }
+
+    const sql = `
+      SELECT q.*, 
+             c.text as context_text,
+             c.title as context_title,
+             c.photos as context_photos
+      FROM questions q
+      LEFT JOIN contexts c ON q.context_id = c.id
+      WHERE q.topic = ? AND q.level = ? 
+      AND q.context_id IS NULL
+      AND ${language === 'kz' ? 'q.question_kz IS NOT NULL AND q.question_kz != ""' : 'q.question_ru IS NOT NULL AND q.question_ru != ""'}
+      ORDER BY RANDOM()
+      LIMIT ?
+    `;
+
+    database.db.all(sql, [topic, level, limit], (err, rows) => {
+      if (err) {
+        callback(err, null);
+        return;
+      }
+
+      if (rows.length === 0) {
+        callback(null, []);
+        return;
+      }
+
+      // Get options for these questions
+      const questionIds = rows.map(row => row.id);
+      Question._attachOptionsToQuestions(questionIds, rows, language, callback);
+    });
+  }
+
+  /**
+   * Find matching questions (questions with suboptions)
+   * @param {string} topic - Question topic
+   * @param {string} language - Language preference
+   * @param {number} limit - Maximum questions to return  
+   * @param {Function} callback - Callback function
+   */
+  static findMatchingQuestions(topic, language = 'ru', limit = 50, callback) {
+    if (typeof language === 'function') {
+      callback = language;
+      language = 'ru';
+      limit = 50;
+    }
+    if (typeof limit === 'function') {
+      callback = limit;
+      limit = 50;
+    }
+
+    const sql = `
+      SELECT DISTINCT q.*, 
+             c.text as context_text,
+             c.title as context_title,
+             c.photos as context_photos
+      FROM questions q
+      LEFT JOIN contexts c ON q.context_id = c.id
+      LEFT JOIN answer_options ao ON q.id = ao.question_id
+      LEFT JOIN suboptions s ON ao.id = s.option_id
+      WHERE q.topic = ? AND q.context_id IS NULL
+      AND ${language === 'kz' ? 'q.question_kz IS NOT NULL AND q.question_kz != ""' : 'q.question_ru IS NOT NULL AND q.question_ru != ""'}
+      AND s.id IS NOT NULL
+      ORDER BY RANDOM()
+      LIMIT ?
+    `;
+
+    database.db.all(sql, [topic, limit], (err, rows) => {
+      if (err) {
+        callback(err, null);
+        return;
+      }
+
+      if (rows.length === 0) {
+        callback(null, []);
+        return;
+      }
+
+      const questionIds = rows.map(row => row.id);
+      Question._attachOptionsToQuestions(questionIds, rows, language, callback);
+    });
+  }
+
+  /**
+   * Find multiple choice questions (questions with 6 options)
+   * @param {string} topic - Question topic
+   * @param {string} language - Language preference
+   * @param {number} limit - Maximum questions to return
+   * @param {Function} callback - Callback function
+   */
+  static findMultipleChoiceQuestions(topic, language = 'ru', limit = 50, callback) {
+    if (typeof language === 'function') {
+      callback = language;
+      language = 'ru';
+      limit = 50;
+    }
+    if (typeof limit === 'function') {
+      callback = limit;
+      limit = 50;
+    }
+
+    const sql = `
+      SELECT q.*, 
+             c.text as context_text,
+             c.title as context_title,
+             c.photos as context_photos,
+             COUNT(ao.id) as option_count
+      FROM questions q
+      LEFT JOIN contexts c ON q.context_id = c.id
+      LEFT JOIN answer_options ao ON q.id = ao.question_id
+      WHERE q.topic = ? AND q.context_id IS NULL
+      AND ${language === 'kz' ? 'q.question_kz IS NOT NULL AND q.question_kz != ""' : 'q.question_ru IS NOT NULL AND q.question_ru != ""'}
+      GROUP BY q.id
+      HAVING option_count = 6
+      ORDER BY RANDOM()
+      LIMIT ?
+    `;
+
+    database.db.all(sql, [topic, limit], (err, rows) => {
+      if (err) {
+        callback(err, null);
+        return;
+      }
+
+      if (rows.length === 0) {
+        callback(null, []);
+        return;
+      }
+
+      const questionIds = rows.map(row => row.id);
+      Question._attachOptionsToQuestions(questionIds, rows, language, callback);
+    });
+  }
+
+  /**
+   * Find questions by context ID
+   * @param {number} contextId - Context ID
+   * @param {string} language - Language preference
+   * @param {number} limit - Maximum questions to return
+   * @param {Function} callback - Callback function
+   */
+  static findByContext(contextId, language = 'ru', limit = 10, callback) {
+    if (typeof language === 'function') {
+      callback = language;
+      language = 'ru';
+      limit = 10;
+    }
+    if (typeof limit === 'function') {
+      callback = limit;
+      limit = 10;
+    }
+
+    const sql = `
+      SELECT q.*, 
+             c.text as context_text,
+             c.title as context_title,
+             c.photos as context_photos
+      FROM questions q
+      LEFT JOIN contexts c ON q.context_id = c.id
+      WHERE q.context_id = ?
+      AND ${language === 'kz' ? 'q.question_kz IS NOT NULL AND q.question_kz != ""' : 'q.question_ru IS NOT NULL AND q.question_ru != ""'}
+      ORDER BY RANDOM()
+      LIMIT ?
+    `;
+
+    database.db.all(sql, [contextId, limit], (err, rows) => {
+      if (err) {
+        callback(err, null);
+        return;
+      }
+
+      if (rows.length === 0) {
+        callback(null, []);
+        return;
+      }
+
+      const questionIds = rows.map(row => row.id);
+      Question._attachOptionsToQuestions(questionIds, rows, language, callback);
+    });
+  }
+
+  /**
+   * Batch method to get questions for structured exam (most optimized)
+   * @param {string} language - Language preference
+   * @param {Object} requirements - Requirements object with topic counts
+   * @param {Function} callback - Callback function
+   */
+  static findForStructuredExam(language = 'ru', requirements, callback) {
+    if (typeof language === 'function') {
+      callback = language;
+      language = 'ru';
+      requirements = {};
+    }
+
+    const conditions = [];
+    const params = [];
+
+    // Build OR conditions for different question types needed
+    Object.entries(requirements).forEach(([key, value]) => {
+      if (value.count > 0) {
+        switch (key) {
+          case 'simple':
+            value.topics.forEach(topic => {
+              conditions.push('(q.topic = ? AND q.level = 1 AND q.context_id IS NULL)');
+              params.push(topic);
+            });
+            break;
+          case 'complex':
+            value.topics.forEach(topic => {
+              conditions.push('(q.topic = ? AND q.level = 2 AND q.context_id IS NULL)');
+              params.push(topic);
+            });
+            break;
+          case 'matching':
+            conditions.push('(q.context_id IS NULL AND EXISTS (SELECT 1 FROM answer_options ao JOIN suboptions s ON ao.id = s.option_id WHERE ao.question_id = q.id))');
+            break;
+          case 'multiple':
+            conditions.push('(q.context_id IS NULL AND (SELECT COUNT(*) FROM answer_options WHERE question_id = q.id) = 6)');
+            break;
+        }
+      }
+    });
+
+    if (conditions.length === 0) {
+      callback(null, []);
+      return;
+    }
+
+    const sql = `
+      SELECT q.*, 
+             c.text as context_text,
+             c.title as context_title,
+             c.photos as context_photos,
+             CASE 
+               WHEN q.level = 1 AND q.context_id IS NULL THEN 'simple'
+               WHEN q.level = 2 AND q.context_id IS NULL THEN 'complex'
+               WHEN q.context_id IS NULL AND EXISTS (SELECT 1 FROM answer_options ao JOIN suboptions s ON ao.id = s.option_id WHERE ao.question_id = q.id) THEN 'matching'
+               WHEN q.context_id IS NULL AND (SELECT COUNT(*) FROM answer_options WHERE question_id = q.id) = 6 THEN 'multiple'
+               ELSE 'other'
+             END as question_type
+      FROM questions q
+      LEFT JOIN contexts c ON q.context_id = c.id
+      WHERE (${conditions.join(' OR ')})
+      AND ${language === 'kz' ? 'q.question_kz IS NOT NULL AND q.question_kz != ""' : 'q.question_ru IS NOT NULL AND q.question_ru != ""'}
+      ORDER BY RANDOM()
+      LIMIT 200
+    `;
+
+    database.db.all(sql, params, (err, rows) => {
+      if (err) {
+        callback(err, null);
+        return;
+      }
+
+      if (rows.length === 0) {
+        callback(null, []);
+        return;
+      }
+
+      const questionIds = rows.map(row => row.id);
+      Question._attachOptionsToQuestions(questionIds, rows, language, callback);
+    });
+  }
+
+  /**
+   * Helper method to attach options to questions
+   * @param {Array} questionIds - Array of question IDs
+   * @param {Array} questions - Array of question objects
+   * @param {string} language - Language preference
+   * @param {Function} callback - Callback function
+   */
+  static _attachOptionsToQuestions(questionIds, questions, language, callback) {
+    if (questionIds.length === 0) {
+      callback(null, []);
+      return;
+    }
+
+    // Get all answer options for these questions
+    const optionsSql = `
+      SELECT ao.*, s.id as sub_id, s.text as sub_text, s.correct as sub_correct, s.order_index as sub_order
+      FROM answer_options ao
+      LEFT JOIN suboptions s ON ao.id = s.option_id
+      WHERE ao.question_id IN (${questionIds.map(() => '?').join(',')})
+      ORDER BY ao.question_id, ao.order_index, s.order_index
+    `;
+
+    database.db.all(optionsSql, questionIds, (optErr, optionRows) => {
+      if (optErr) {
+        callback(optErr, null);
+        return;
+      }
+
+      // Group options by question
+      const questionOptions = {};
+      optionRows.forEach(opt => {
+        if (!questionOptions[opt.question_id]) {
+          questionOptions[opt.question_id] = {};
+        }
+
+        if (!questionOptions[opt.question_id][opt.id]) {
+          questionOptions[opt.question_id][opt.id] = {
+            id: opt.id,
+            option_letter: opt.option_letter,
+            option_text_ru: opt.option_text_ru,
+            option_text_kz: opt.option_text_kz,
+            order_index: opt.order_index,
+            suboptions: []
+          };
+        }
+
+        if (opt.sub_id) {
+          questionOptions[opt.question_id][opt.id].suboptions.push({
+            id: opt.sub_id,
+            text: opt.sub_text,
+            correct: opt.sub_correct === 1,
+            order_index: opt.sub_order
+          });
+        }
+      });
+
+      // Transform questions to final format
+      const result = questions.map(row => {
+        const questionLanguage = language || row.language || 'ru';
+        const questionText = questionLanguage === 'kz' ? 
+          (row.question_kz || row.question_ru) : 
+          (row.question_ru || row.question_kz);
+
+        const photos = JSON.parse(row.photos || '[]');
+        
+        // Get options for this question
+        const questionOpts = questionOptions[row.id] || {};
+        const options = Object.values(questionOpts).map(opt => {
+          const optionText = questionLanguage === 'kz' ? opt.option_text_kz : opt.option_text_ru;
+          
+          if (opt.suboptions && opt.suboptions.length > 0) {
+            return {
+              text: optionText,
+              suboptions: opt.suboptions
+            };
+          } else {
+            return optionText;
+          }
+        });
+
+        return {
+          id: row.id,
+          question: questionText,
+          answer: row.answer,
+          level: row.level,
+          topic: row.topic,
+          language: questionLanguage,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          context_id: row.context_id,
+          context_text: row.context_text,
+          context_title: row.context_title,
+          context_photos: row.context_photos ? JSON.parse(row.context_photos) : null,
+          photos: photos,
+          options: options,
+          question_type: row.question_type // Added for structured exam optimization
+        };
+      });
+
+      callback(null, result);
+    });
+  }
 }
 
 module.exports = Question;
