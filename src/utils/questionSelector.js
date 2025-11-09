@@ -1,27 +1,65 @@
 /**
- * Question selector utilities for structured exam generation
+ * OPTIMIZED Question selector utilities for structured exam generation
+ * Replaces inefficient Question.findAll() calls with targeted queries
+ * Includes intelligent caching for maximum performance
  */
 
 const Question = require('../models/Question');
 const Context = require('../models/Context');
+const examCache = require('./examCache');
 
 /**
- * Get questions by specific criteria
+ * Get questions by specific criteria (OPTIMIZED VERSION)
+ * Uses targeted SQL queries instead of loading all questions
  * @param {Object} criteria - Selection criteria
  * @param {string} language - Language preference
  * @returns {Promise<Array>} Array of questions
  */
 function getQuestionsByCriteria(criteria, language = 'ru') {
   return new Promise((resolve, reject) => {
-    Question.findAll(language, (err, questions) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      const filtered = questions.filter(q => matchesCriteria(q, criteria));
-      resolve(filtered);
-    });
+    // Use optimized methods based on criteria
+    if (criteria.topic && criteria.levelRequired && criteria.level) {
+      // Use optimized findByTopicAndLevel
+      Question.findByTopicAndLevel(criteria.topic, criteria.level, language, 50, (err, questions) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        // Apply additional filters if needed
+        const filtered = questions.filter(q => matchesCriteria(q, criteria));
+        resolve(filtered);
+      });
+    } else if (criteria.hasSuboptions) {
+      // Use optimized findMatchingQuestions
+      Question.findMatchingQuestions(criteria.topic, language, 50, (err, questions) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        const filtered = questions.filter(q => matchesCriteria(q, criteria));
+        resolve(filtered);
+      });
+    } else if (criteria.optionCount === 6) {
+      // Use optimized findMultipleChoiceQuestions
+      Question.findMultipleChoiceQuestions(criteria.topic, language, 50, (err, questions) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        const filtered = questions.filter(q => matchesCriteria(q, criteria));
+        resolve(filtered);
+      });
+    } else {
+      // Fallback to old method for edge cases
+      Question.findAll(language, (err, questions) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        const filtered = questions.filter(q => matchesCriteria(q, criteria));
+        resolve(filtered);
+      });
+    }
   });
 }
 
@@ -69,123 +107,164 @@ function matchesCriteria(question, criteria) {
 }
 
 /**
- * Get simple questions (positions 1-15)
+ * Get simple questions (positions 1-15) - OPTIMIZED WITH CACHE
  * @param {string} topic - Topic name
  * @param {string} language - Language preference
  * @returns {Promise<Array>} Array of simple questions
  */
 async function getSimpleQuestions(topic, language = 'ru') {
-  const criteria = {
-    topic,
-    levelRequired: true,
-    level: 1,
-    optionCount: 4,
-    hasContext: false,
-    hasSuboptions: false
-  };
-  return await getQuestionsByCriteria(criteria, language);
+  // Check cache first
+  const cached = examCache.get('simple', topic, language);
+  if (cached) {
+    return cached;
+  }
+
+  return new Promise((resolve, reject) => {
+    Question.findByTopicAndLevel(topic, 1, language, 50, (err, questions) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      // Filter for 4 options and no suboptions
+      const filtered = questions.filter(q => 
+        q.options.length === 4 && 
+        !q.options.some(opt => typeof opt === 'object' && opt.suboptions)
+      );
+      
+      // Cache the result
+      examCache.set('simple', topic, language, filtered);
+      resolve(filtered);
+    });
+  });
 }
 
 /**
- * Get complex questions (positions 16-25)
+ * Get complex questions (positions 16-25) - OPTIMIZED WITH CACHE
  * @param {string} topic - Topic name
  * @param {string} language - Language preference
  * @returns {Promise<Array>} Array of complex questions
  */
 async function getComplexQuestions(topic, language = 'ru') {
-  const criteria = {
-    topic,
-    levelRequired: true,
-    level: 2,
-    optionCount: 4,
-    hasContext: false,
-    hasSuboptions: false
-  };
-  return await getQuestionsByCriteria(criteria, language);
+  // Check cache first
+  const cached = examCache.get('complex', topic, language);
+  if (cached) {
+    return cached;
+  }
+
+  return new Promise((resolve, reject) => {
+    Question.findByTopicAndLevel(topic, 2, language, 50, (err, questions) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      // Filter for 4 options and no suboptions
+      const filtered = questions.filter(q => 
+        q.options.length === 4 && 
+        !q.options.some(opt => typeof opt === 'object' && opt.suboptions)
+      );
+      
+      // Cache the result
+      examCache.set('complex', topic, language, filtered);
+      resolve(filtered);
+    });
+  });
 }
 
 /**
- * Get matching questions (positions 31-35)
+ * Get matching questions (positions 31-35) - OPTIMIZED WITH CACHE
  * @param {string} topic - Topic name
  * @param {string} language - Language preference
  * @returns {Promise<Array>} Array of matching questions
  */
 async function getMatchingQuestions(topic, language = 'ru') {
-  const criteria = {
-    topic,
-    hasContext: false,
-    hasSuboptions: true
-  };
-  return await getQuestionsByCriteria(criteria, language);
+  // Check cache first
+  const cached = examCache.get('matching', topic, language);
+  if (cached) {
+    return cached;
+  }
+
+  return new Promise((resolve, reject) => {
+    Question.findMatchingQuestions(topic, language, 50, (err, questions) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Cache the result
+      examCache.set('matching', topic, language, questions);
+      resolve(questions);
+    });
+  });
 }
 
 /**
- * Get multiple choice questions (positions 36-40)
+ * Get multiple choice questions (positions 36-40) - OPTIMIZED WITH CACHE
  * @param {string} topic - Topic name
  * @param {string} language - Language preference
  * @returns {Promise<Array>} Array of multiple choice questions
  */
 async function getMultipleChoiceQuestions(topic, language = 'ru') {
-  const criteria = {
-    topic,
-    optionCount: 6,
-    hasContext: false,
-    hasSuboptions: false
-  };
-  return await getQuestionsByCriteria(criteria, language);
+  // Check cache first
+  const cached = examCache.get('multiple', topic, language);
+  if (cached) {
+    return cached;
+  }
+
+  return new Promise((resolve, reject) => {
+    Question.findMultipleChoiceQuestions(topic, language, 50, (err, questions) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Cache the result
+      examCache.set('multiple', topic, language, questions);
+      resolve(questions);
+    });
+  });
 }
 
 /**
- * Find context with enough questions for context section (positions 26-30)
+ * Find context with enough questions for context section (positions 26-30) - OPTIMIZED
  * @param {string} language - Language preference
  * @returns {Promise<Object|null>} Context with questions or null
  */
 async function findContextWithQuestions(language = 'ru') {
   return new Promise((resolve, reject) => {
-    // Get all contexts
-    Context.findAll((err, contexts) => {
+    // Use optimized method to find context with sufficient questions
+    Context.findWithSufficientQuestions(5, language, (err, contextData) => {
       if (err) {
         reject(err);
         return;
       }
 
-      if (!contexts || contexts.length === 0) {
+      if (!contextData) {
         resolve(null);
         return;
       }
 
-      // Get all questions with context
-      Question.findAll(language, (err, questions) => {
+      // Get the questions for this context
+      Question.findByContext(contextData.id, language, 5, (err, questions) => {
         if (err) {
           reject(err);
           return;
         }
 
-        // Group questions by context_id
-        const questionsByContext = {};
-        questions.forEach(q => {
-          if (q.context_id) {
-            if (!questionsByContext[q.context_id]) {
-              questionsByContext[q.context_id] = [];
-            }
-            questionsByContext[q.context_id].push(q);
-          }
-        });
-
-        // Find context with at least 5 questions
-        for (const context of contexts) {
-          const contextQuestions = questionsByContext[context.id] || [];
-          if (contextQuestions.length >= 5) {
-            resolve({
-              context,
-              questions: contextQuestions.slice(0, 5) // Take exactly 5 questions
-            });
-            return;
-          }
+        if (questions.length < 5) {
+          resolve(null);
+          return;
         }
 
-        // No context with enough questions found
-        resolve(null);
+        // Return context with questions in the expected format
+        resolve({
+          context: {
+            id: contextData.id,
+            text: contextData.text,
+            title: contextData.title,
+            photos: contextData.photos
+          },
+          questions: questions.slice(0, 5) // Take exactly 5 questions
+        });
       });
     });
   });
@@ -205,7 +284,8 @@ function selectRandomQuestion(questions) {
 }
 
 /**
- * Select questions for structured exam
+ * Select questions for structured exam - HEAVILY OPTIMIZED
+ * Uses batch queries and parallel processing to minimize database calls
  * @param {Array} structure - Exam structure array
  * @param {string} language - Language preference
  * @returns {Promise<Object>} Selection result with questions and issues
@@ -215,22 +295,127 @@ async function selectStructuredQuestions(structure, language = 'ru') {
   const issues = [];
   let contextGroup = null;
 
-  for (const item of structure) {
-    let selectedQuestion = null;
+  try {
+    // Group structure by type and topic for batch processing
+    const groupedStructure = {
+      simple: {},
+      complex: {},
+      matching: [],
+      multiple: [],
+      context: []
+    };
 
-    try {
+    structure.forEach(item => {
       switch (item.type) {
         case 'simple':
-          const simpleQuestions = await getSimpleQuestions(item.topic, language);
-          selectedQuestion = selectRandomQuestion(simpleQuestions);
+          if (!groupedStructure.simple[item.topic]) {
+            groupedStructure.simple[item.topic] = [];
+          }
+          groupedStructure.simple[item.topic].push(item);
+          break;
+        case 'complex':
+          if (!groupedStructure.complex[item.topic]) {
+            groupedStructure.complex[item.topic] = [];
+          }
+          groupedStructure.complex[item.topic].push(item);
+          break;
+        case 'matching':
+          groupedStructure.matching.push(item);
+          break;
+        case 'multiple':
+          groupedStructure.multiple.push(item);
+          break;
+        case 'context':
+          groupedStructure.context.push(item);
+          break;
+      }
+    });
+
+    // Parallel batch processing
+    const promises = [];
+    const questionPools = {};
+
+    // Batch load simple questions by topic
+    Object.keys(groupedStructure.simple).forEach(topic => {
+      promises.push(
+        getSimpleQuestions(topic, language).then(questions => {
+          questionPools[`simple_${topic}`] = questions;
+        }).catch(err => {
+          console.warn(`Error loading simple questions for ${topic}:`, err.message);
+          questionPools[`simple_${topic}`] = [];
+        })
+      );
+    });
+
+    // Batch load complex questions by topic
+    Object.keys(groupedStructure.complex).forEach(topic => {
+      promises.push(
+        getComplexQuestions(topic, language).then(questions => {
+          questionPools[`complex_${topic}`] = questions;
+        }).catch(err => {
+          console.warn(`Error loading complex questions for ${topic}:`, err.message);
+          questionPools[`complex_${topic}`] = [];
+        })
+      );
+    });
+
+    // Load matching questions (collect all topics needed)
+    const matchingTopics = [...new Set(groupedStructure.matching.map(item => item.topic))];
+    matchingTopics.forEach(topic => {
+      promises.push(
+        getMatchingQuestions(topic, language).then(questions => {
+          questionPools[`matching_${topic}`] = questions;
+        }).catch(err => {
+          console.warn(`Error loading matching questions for ${topic}:`, err.message);
+          questionPools[`matching_${topic}`] = [];
+        })
+      );
+    });
+
+    // Load multiple choice questions (collect all topics needed)
+    const multipleTopics = [...new Set(groupedStructure.multiple.map(item => item.topic))];
+    multipleTopics.forEach(topic => {
+      promises.push(
+        getMultipleChoiceQuestions(topic, language).then(questions => {
+          questionPools[`multiple_${topic}`] = questions;
+        }).catch(err => {
+          console.warn(`Error loading multiple choice questions for ${topic}:`, err.message);
+          questionPools[`multiple_${topic}`] = [];
+        })
+      );
+    });
+
+    // Load context questions if needed
+    if (groupedStructure.context.length > 0) {
+      promises.push(
+        findContextWithQuestions(language).then(context => {
+          contextGroup = context;
+        }).catch(err => {
+          console.warn('Error loading context questions:', err.message);
+          contextGroup = null;
+        })
+      );
+    }
+
+    // Wait for all parallel loads to complete
+    await Promise.all(promises);
+
+    // Now assign questions from loaded pools
+    for (const item of structure) {
+      let selectedQuestion = null;
+
+      switch (item.type) {
+        case 'simple':
+          const simplePool = questionPools[`simple_${item.topic}`] || [];
+          selectedQuestion = selectRandomQuestion(simplePool);
           if (!selectedQuestion) {
             issues.push(`No simple questions found for topic: ${item.topic} at position ${item.position}`);
           }
           break;
 
         case 'complex':
-          const complexQuestions = await getComplexQuestions(item.topic, language);
-          selectedQuestion = selectRandomQuestion(complexQuestions);
+          const complexPool = questionPools[`complex_${item.topic}`] || [];
+          selectedQuestion = selectRandomQuestion(complexPool);
           if (!selectedQuestion) {
             issues.push(`No complex questions found for topic: ${item.topic} at position ${item.position}`);
           }
@@ -238,11 +423,8 @@ async function selectStructuredQuestions(structure, language = 'ru') {
 
         case 'context':
           if (!contextGroup) {
-            contextGroup = await findContextWithQuestions(language);
-            if (!contextGroup) {
-              issues.push(`No context with 5+ questions found for positions 26-30`);
-              break;
-            }
+            issues.push(`No context with 5+ questions found for positions 26-30`);
+            break;
           }
           
           const contextQuestionIndex = item.position - 26; // 0-4
@@ -254,16 +436,16 @@ async function selectStructuredQuestions(structure, language = 'ru') {
           break;
 
         case 'matching':
-          const matchingQuestions = await getMatchingQuestions(item.topic, language);
-          selectedQuestion = selectRandomQuestion(matchingQuestions);
+          const matchingPool = questionPools[`matching_${item.topic}`] || [];
+          selectedQuestion = selectRandomQuestion(matchingPool);
           if (!selectedQuestion) {
             issues.push(`No matching questions found for topic: ${item.topic} at position ${item.position}`);
           }
           break;
 
         case 'multiple':
-          const multipleQuestions = await getMultipleChoiceQuestions(item.topic, language);
-          selectedQuestion = selectRandomQuestion(multipleQuestions);
+          const multiplePool = questionPools[`multiple_${item.topic}`] || [];
+          selectedQuestion = selectRandomQuestion(multiplePool);
           if (!selectedQuestion) {
             issues.push(`No multiple choice questions found for topic: ${item.topic} at position ${item.position}`);
           }
@@ -281,10 +463,11 @@ async function selectStructuredQuestions(structure, language = 'ru') {
           requiredTopic: item.topic
         });
       }
-
-    } catch (error) {
-      issues.push(`Error selecting question for position ${item.position}: ${error.message}`);
     }
+
+  } catch (error) {
+    console.error('Error in selectStructuredQuestions:', error);
+    issues.push(`Critical error in question selection: ${error.message}`);
   }
 
   return {

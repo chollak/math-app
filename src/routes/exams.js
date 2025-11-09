@@ -10,6 +10,18 @@ const examController = require('../controllers/examController');
 router.get('/readiness', asyncHandler(examController.checkExamReadiness));
 
 /**
+ * GET /api/exams/cache-stats
+ * Get cache statistics for performance monitoring
+ */
+router.get('/cache-stats', asyncHandler(examController.getCacheStats));
+
+/**
+ * GET /api/exams/history/:deviceId
+ * Get exam history for a device (moved before dynamic routes)
+ */
+router.get('/history/:deviceId', asyncHandler(examController.getExamHistory));
+
+/**
  * POST /api/exams/start
  * Start a new exam
  * Body: { deviceId: string, questionCount: number, filters: { topic, level } }
@@ -28,12 +40,6 @@ router.get('/:examId/questions', asyncHandler(examController.getExamQuestions));
  * Body: { deviceId: string, answers: [{ questionId: number, answer: string }] }
  */
 router.post('/:examId/submit', asyncHandler(examController.submitExam));
-
-/**
- * GET /api/exams/history/:deviceId
- * Get exam history for a device
- */
-router.get('/history/:deviceId', asyncHandler(examController.getExamHistory));
 
 /**
  * GET /api/exams/:examId

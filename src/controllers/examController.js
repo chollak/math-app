@@ -511,6 +511,28 @@ async function checkExamReadiness(req, res) {
   }
 }
 
+/**
+ * Get cache statistics for performance monitoring
+ * GET /api/exams/cache-stats
+ */
+function getCacheStats(req, res) {
+  try {
+    const examCache = require('../utils/examCache');
+    const stats = examCache.getStats();
+    
+    res.json({
+      cache: stats,
+      performance: {
+        message: 'Cache is working to accelerate exam generation',
+        hitRate: stats.total > 0 ? `${Math.round((stats.valid / stats.total) * 100)}%` : 'N/A'
+      }
+    });
+  } catch (error) {
+    console.error('Error getting cache stats:', error);
+    res.status(500).json({ error: 'Failed to get cache statistics' });
+  }
+}
+
 module.exports = {
   startExam,
   getExamQuestions,
@@ -518,5 +540,6 @@ module.exports = {
   getExamHistory,
   getExamDetails,
   getUserStats,
-  checkExamReadiness
+  checkExamReadiness,
+  getCacheStats
 };
