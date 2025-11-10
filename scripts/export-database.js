@@ -60,7 +60,7 @@ BEGIN TRANSACTION;
 
 `;
 
-    const tables = ['contexts', 'questions', 'answer_options'];
+    const tables = ['contexts', 'questions', 'answer_options', 'suboptions', 'exams', 'exam_questions', 'app_versions'];
     let completedTables = 0;
 
     function processTable(tableName) {
