@@ -13,6 +13,7 @@ const { getValidatedLanguage, createLanguageError } = require('../utils/language
 const { getExamStructure } = require('../config/examStructure');
 const { selectStructuredQuestions } = require('../utils/questionSelector');
 const { generateReadinessReport } = require('../utils/examValidator');
+const { fisherYatesShuffle, randomSample } = require('../utils/randomizer');
 
 /**
  * Start a new exam
@@ -85,12 +86,12 @@ async function startExam(req, res) {
     if (selectedQuestions.length === 0) {
       console.log('Using random question selection...');
       
-      // Get all available questions (convert callback to Promise)
+      // Get all available questions with random order (convert callback to Promise)
       const allQuestions = await new Promise((resolve, reject) => {
         Question.findAll(language, (err, questions) => {
           if (err) reject(err);
           else resolve(questions || []);
-        });
+        }, { randomOrder: true }); // Включаем случайную сортировку на уровне БД
       });
 
       if (allQuestions.length === 0) {
@@ -116,9 +117,14 @@ async function startExam(req, res) {
         });
       }
 
-      // Shuffle and select random questions
-      const shuffled = filteredQuestions.sort(() => Math.random() - 0.5);
-      selectedQuestions = shuffled.slice(0, Math.min(questionCountNum, shuffled.length));
+      // Use high-quality Fisher-Yates shuffle and select random questions
+      if (questionCountNum >= filteredQuestions.length) {
+        // Если нужны все вопросы или больше, просто перемешиваем все
+        selectedQuestions = fisherYatesShuffle(filteredQuestions);
+      } else {
+        // Используем randomSample для эффективного выбора подмножества
+        selectedQuestions = randomSample(filteredQuestions, questionCountNum);
+      }
     }
 
     // Create exam

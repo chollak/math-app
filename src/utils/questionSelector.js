@@ -7,6 +7,7 @@
 const Question = require('../models/Question');
 const Context = require('../models/Context');
 const examCache = require('./examCache');
+const { randomChoice, fisherYatesShuffle, removeDuplicatesBy } = require('./randomizer');
 
 /**
  * Get questions by specific criteria (OPTIMIZED VERSION)
@@ -255,6 +256,9 @@ async function findContextWithQuestions(language = 'ru') {
           return;
         }
 
+        // Перемешиваем вопросы контекста и берем первые 5
+        const shuffledQuestions = fisherYatesShuffle([...questions]);
+
         // Return context with questions in the expected format
         resolve({
           context: {
@@ -263,7 +267,7 @@ async function findContextWithQuestions(language = 'ru') {
             title: contextData.title,
             photos: contextData.photos
           },
-          questions: questions.slice(0, 5) // Take exactly 5 questions
+          questions: shuffledQuestions.slice(0, 5) // Take exactly 5 questions
         });
       });
     });
@@ -271,16 +275,27 @@ async function findContextWithQuestions(language = 'ru') {
 }
 
 /**
- * Select random question from array
+ * Select random question from array, excluding already selected ones
  * @param {Array} questions - Array of questions
+ * @param {Array} excludeIds - Array of question IDs to exclude (default: [])
  * @returns {Object|null} Selected question or null
  */
-function selectRandomQuestion(questions) {
+function selectRandomQuestion(questions, excludeIds = []) {
   if (!questions || questions.length === 0) {
     return null;
   }
-  const randomIndex = Math.floor(Math.random() * questions.length);
-  return questions[randomIndex];
+  
+  // Фильтруем вопросы, исключая уже выбранные
+  const availableQuestions = questions.filter(q => !excludeIds.includes(q.id));
+  
+  if (availableQuestions.length === 0) {
+    // Если нет доступных вопросов, возвращаем null
+    console.warn('No available questions after exclusion filter');
+    return null;
+  }
+  
+  // Используем качественный randomChoice вместо Math.floor(Math.random())
+  return randomChoice(availableQuestions);
 }
 
 /**
@@ -293,6 +308,7 @@ function selectRandomQuestion(questions) {
 async function selectStructuredQuestions(structure, language = 'ru') {
   const selectedQuestions = [];
   const issues = [];
+  const selectedQuestionIds = []; // Отслеживание уже выбранных вопросов
   let contextGroup = null;
 
   try {
@@ -407,7 +423,7 @@ async function selectStructuredQuestions(structure, language = 'ru') {
       switch (item.type) {
         case 'simple':
           const simplePool = questionPools[`simple_${item.topic}`] || [];
-          selectedQuestion = selectRandomQuestion(simplePool);
+          selectedQuestion = selectRandomQuestion(simplePool, selectedQuestionIds);
           if (!selectedQuestion) {
             issues.push(`No simple questions found for topic: ${item.topic} at position ${item.position}`);
           }
@@ -415,7 +431,7 @@ async function selectStructuredQuestions(structure, language = 'ru') {
 
         case 'complex':
           const complexPool = questionPools[`complex_${item.topic}`] || [];
-          selectedQuestion = selectRandomQuestion(complexPool);
+          selectedQuestion = selectRandomQuestion(complexPool, selectedQuestionIds);
           if (!selectedQuestion) {
             issues.push(`No complex questions found for topic: ${item.topic} at position ${item.position}`);
           }
@@ -437,7 +453,7 @@ async function selectStructuredQuestions(structure, language = 'ru') {
 
         case 'matching':
           const matchingPool = questionPools[`matching_${item.topic}`] || [];
-          selectedQuestion = selectRandomQuestion(matchingPool);
+          selectedQuestion = selectRandomQuestion(matchingPool, selectedQuestionIds);
           if (!selectedQuestion) {
             issues.push(`No matching questions found for topic: ${item.topic} at position ${item.position}`);
           }
@@ -445,7 +461,7 @@ async function selectStructuredQuestions(structure, language = 'ru') {
 
         case 'multiple':
           const multiplePool = questionPools[`multiple_${item.topic}`] || [];
-          selectedQuestion = selectRandomQuestion(multiplePool);
+          selectedQuestion = selectRandomQuestion(multiplePool, selectedQuestionIds);
           if (!selectedQuestion) {
             issues.push(`No multiple choice questions found for topic: ${item.topic} at position ${item.position}`);
           }
@@ -462,6 +478,9 @@ async function selectStructuredQuestions(structure, language = 'ru') {
           requiredType: item.type,
           requiredTopic: item.topic
         });
+        
+        // Добавляем ID выбранного вопроса в список исключений
+        selectedQuestionIds.push(selectedQuestion.id);
       }
     }
 
