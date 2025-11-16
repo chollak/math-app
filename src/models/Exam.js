@@ -1,4 +1,5 @@
 const database = require('../config/database');
+const { buildDateSqlConditions } = require('../utils/dateHelper');
 
 class Exam {
   /**
@@ -73,14 +74,16 @@ class Exam {
   }
 
   /**
-   * Get exam history for a device
+   * Get exam history for a device with optional date filtering
    * @param {string} deviceId - Device identifier
    * @param {number} limit - Maximum number of records to return
+   * @param {Object} dateFilters - Optional date filters { startDate, endDate, dateField }
    * @returns {Promise<Array>} Array of exam records
    */
-  static getHistory(deviceId, limit = 50) {
+  static getHistory(deviceId, limit = 50, dateFilters = {}) {
     return new Promise((resolve, reject) => {
-      const sql = `
+      // Build base SQL query
+      let sql = `
         SELECT
           id,
           device_id,
@@ -94,11 +97,27 @@ class Exam {
           status
         FROM exams
         WHERE device_id = ? AND status = 'completed'
-        ORDER BY completed_at DESC
-        LIMIT ?
       `;
 
-      database.db.all(sql, [deviceId, limit], (err, rows) => {
+      // Start with base parameters
+      let params = [deviceId];
+
+      // Add date filtering if provided
+      if (dateFilters && (dateFilters.startDate || dateFilters.endDate)) {
+        const dateConditions = buildDateSqlConditions(dateFilters, params);
+        
+        if (dateConditions.conditions.length > 0) {
+          sql += ' AND ' + dateConditions.conditions.join(' AND ');
+          params = dateConditions.params;
+        }
+      }
+
+      // Add ordering and limit
+      const orderField = (dateFilters && dateFilters.dateField) || 'completed_at';
+      sql += ` ORDER BY ${orderField} DESC LIMIT ?`;
+      params.push(limit);
+
+      database.db.all(sql, params, (err, rows) => {
         if (err) {
           reject(err);
         } else {

@@ -255,11 +255,17 @@ Content-Type: application/json
 ### 4. Получить историю экзаменов
 
 ```http
-GET /api/exams/history/{deviceId}
+GET /api/exams/history/{deviceId}?startDate={startDate}&endDate={endDate}&dateField={dateField}&limit={limit}
 ```
 
 **Parameters:**
 - `deviceId` (string, в URL) - ID устройства
+- `startDate` (string, query, optional) - Начальная дата фильтра (формат: YYYY-MM-DD или YYYY-MM-DDTHH:MM:SS)
+- `endDate` (string, query, optional) - Конечная дата фильтра (формат: YYYY-MM-DD или YYYY-MM-DDTHH:MM:SS)
+- `dateField` (string, query, optional) - Поле для фильтрации по дате (по умолчанию: "completed_at")
+  - `started_at` - фильтрация по дате начала экзамена
+  - `completed_at` - фильтрация по дате завершения экзамена
+- `limit` (number, query, optional) - Максимальное количество записей (по умолчанию: 50, максимум: 200)
 
 **Response (200 OK):**
 ```json
@@ -291,9 +297,49 @@ GET /api/exams/history/{deviceId}
 ]
 ```
 
+**Примеры запросов:**
+
+```http
+# Получить все экзамены за последний месяц
+GET /api/exams/history/device123?startDate=2024-11-01&endDate=2024-11-30
+
+# Получить экзамены, начатые в определенный день
+GET /api/exams/history/device123?startDate=2024-11-15&dateField=started_at
+
+# Получить последние 20 экзаменов, завершенных до определенной даты
+GET /api/exams/history/device123?endDate=2024-11-15&limit=20
+
+# Получить экзамены за конкретный день с временными метками
+GET /api/exams/history/device123?startDate=2024-11-15T00:00:00&endDate=2024-11-15T23:59:59
+```
+
 **Errors:**
-- `400` - deviceId отсутствует
+- `400` - deviceId отсутствует или некорректные параметры дат
 - `500` - Ошибка сервера
+
+**Пример ошибки валидации дат:**
+```json
+{
+  "error": "Invalid date filter parameters",
+  "details": [
+    {
+      "field": "startDate",
+      "message": "Invalid startDate format \"2024-13-01\". Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format"
+    }
+  ],
+  "supportedFormats": [
+    "YYYY-MM-DD (e.g., 2024-01-15)",
+    "YYYY-MM-DDTHH:MM:SS (e.g., 2024-01-15T14:30:00)",
+    "YYYY-MM-DD HH:MM:SS (e.g., 2024-01-15 14:30:00)"
+  ],
+  "supportedDateFields": ["started_at", "completed_at"],
+  "examples": [
+    "startDate=2024-01-01&endDate=2024-01-31",
+    "startDate=2024-01-01&dateField=started_at",
+    "endDate=2024-01-15&dateField=completed_at"
+  ]
+}
+```
 
 ---
 

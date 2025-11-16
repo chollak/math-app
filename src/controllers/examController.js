@@ -10,6 +10,7 @@ const {
 } = require('../utils/structuredScoringLogic');
 const { keysToCamel, keysToSnake } = require('../utils/caseConverter');
 const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
+const { parseDateFilters, createDateFilterError } = require('../utils/dateHelper');
 const { getExamStructure } = require('../config/examStructure');
 const { selectStructuredQuestions } = require('../utils/questionSelector');
 const { generateReadinessReport } = require('../utils/examValidator');
@@ -408,8 +409,24 @@ async function getExamHistory(req, res) {
       return res.status(400).json({ error: 'deviceId is required' });
     }
 
-    // Get history
-    const history = await Exam.getHistory(deviceId);
+    // Parse date filters from query parameters
+    const dateFiltersResult = parseDateFilters(req.query);
+    
+    if (!dateFiltersResult.valid) {
+      return res.status(400).json(createDateFilterError(dateFiltersResult.errors));
+    }
+
+    // Parse limit parameter
+    const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+    if (isNaN(limit) || limit <= 0 || limit > 200) {
+      return res.status(400).json({
+        error: 'Invalid limit parameter',
+        message: 'Limit must be between 1 and 200'
+      });
+    }
+
+    // Get history with date filters
+    const history = await Exam.getHistory(deviceId, limit, dateFiltersResult.filters);
 
     // Convert to camelCase
     const response = keysToCamel(history);
