@@ -110,8 +110,7 @@ GET /api/exams/{examId}/questions
   {
     "order": 1,
     "questionId": 12,
-    "questionRu": "Сколько будет 2+2?",
-    "questionKz": "2+2 нешеу болады?",
+    "question": "Сколько будет 2+2?",
     "language": "ru",
     "topic": "Математика",
     "level": 1,
@@ -147,8 +146,7 @@ GET /api/exams/{examId}/questions
   {
     "order": 2,
     "questionId": 5,
-    "questionRu": "Какие числа четные?",
-    "questionKz": "Қандай сандар жұп?",
+    "question": "Какие числа четные?",
     "language": "ru",
     "topic": "Математика",
     "level": 2,
@@ -224,8 +222,8 @@ Content-Type: application/json
       "correctAnswer": "B",
       "pointsEarned": 1,
       "maxPoints": 1,
-      "questionRu": "Сколько будет 2+2?",
-      "questionKz": "2+2 нешеу болады?",
+      "question": "Сколько будет 2+2?",
+      "language": "ru",
       "topic": "Математика",
       "level": 1
     },
@@ -236,8 +234,8 @@ Content-Type: application/json
       "correctAnswer": "A,C",
       "pointsEarned": 2,
       "maxPoints": 2,
-      "questionRu": "Какие числа четные?",
-      "questionKz": "Қандай сандар жұп?",
+      "question": "Какие числа четные?",
+      "language": "ru",
       "topic": "Математика",
       "level": 2
     }
@@ -438,8 +436,7 @@ struct ExamResponse: Codable {
 struct ExamQuestion: Codable {
     let order: Int
     let questionId: Int
-    let questionRu: String
-    let questionKz: String
+    let question: String
     let language: String
     let topic: String
     let level: Int
@@ -508,8 +505,8 @@ struct QuestionResult: Codable {
     let correctAnswer: String
     let pointsEarned: Double
     let maxPoints: Double
-    let questionRu: String
-    let questionKz: String
+    let question: String
+    let language: String
     let topic: String
     let level: Int
 }

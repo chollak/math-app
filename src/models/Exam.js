@@ -111,9 +111,10 @@ class Exam {
   /**
    * Get detailed exam results including all questions and answers
    * @param {number} examId - Exam ID
+   * @param {string} language - Language preference ('ru' or 'kz')
    * @returns {Promise<object>} Detailed exam results
    */
-  static getDetailedResults(examId) {
+  static getDetailedResults(examId, language = 'ru') {
     return new Promise((resolve, reject) => {
       // First get exam info
       const examSql = `
@@ -156,6 +157,7 @@ class Exam {
             eq.answered_at,
             q.question_ru,
             q.question_kz,
+            q.language,
             q.topic,
             q.level
           FROM exam_questions eq
@@ -168,9 +170,34 @@ class Exam {
           if (err) {
             reject(err);
           } else {
+            // Transform questions to use language-specific question text
+            const transformedQuestions = questions.map(q => {
+              // Determine language for question display  
+              const questionLanguage = language || q.language || 'ru';
+              // Choose question text based on language with fallback
+              const questionText = questionLanguage === 'kz' ? 
+                (q.question_kz || q.question_ru) : // Fallback to Russian if Kazakh is missing
+                (q.question_ru || q.question_kz);   // Fallback to Kazakh if Russian is missing
+              
+              return {
+                id: q.id,
+                question_id: q.question_id,
+                question_order: q.question_order,
+                user_answer: q.user_answer,
+                correct_answer: q.correct_answer,
+                points_earned: q.points_earned,
+                max_points: q.max_points,
+                answered_at: q.answered_at,
+                question: questionText,
+                language: questionLanguage,
+                topic: q.topic,
+                level: q.level
+              };
+            });
+            
             resolve({
               exam,
-              questions: questions || []
+              questions: transformedQuestions
             });
           }
         });

@@ -363,32 +363,27 @@ async function submitExam(req, res) {
     // Mark exam as completed
     await Exam.complete(examId, totalPoints, maxPossiblePoints);
 
-    // Get detailed results
-    const detailedResults = await Exam.getDetailedResults(examId);
+    // Get language from headers or query parameters
+    const language = getValidatedLanguage(req);
+    
+    // Get detailed results with language preference
+    const detailedResults = await Exam.getDetailedResults(examId, language);
 
-    // Format detailed results for response - use unified question format
+    // Format detailed results for response - questions already have unified format
     const formattedResults = {
       exam: detailedResults.exam,
-      questions: detailedResults.questions.map(q => {
-        // Use language-specific question text (consistent with other endpoints)
-        const questionLanguage = q.language || 'ru';
-        const questionText = questionLanguage === 'kz' ? 
-          (q.question_kz || q.question_ru) : 
-          (q.question_ru || q.question_kz);
-        
-        return {
-          question_id: q.question_id,
-          question_order: q.question_order,
-          question: questionText,
-          language: questionLanguage,
-          user_answer: q.user_answer,
-          correct_answer: q.correct_answer,
-          points_earned: q.points_earned,
-          max_points: q.max_points,
-          topic: q.topic,
-          level: q.level
-        };
-      })
+      questions: detailedResults.questions.map(q => ({
+        question_id: q.question_id,
+        question_order: q.question_order,
+        question: q.question,
+        language: q.language,
+        user_answer: q.user_answer,
+        correct_answer: q.correct_answer,
+        points_earned: q.points_earned,
+        max_points: q.max_points,
+        topic: q.topic,
+        level: q.level
+      }))
     };
 
     // Convert to camelCase
@@ -438,8 +433,11 @@ async function getExamDetails(req, res) {
       return res.status(400).json({ error: 'Invalid examId' });
     }
 
-    // Get detailed results
-    const detailedResults = await Exam.getDetailedResults(examId);
+    // Get language from headers or query parameters
+    const language = getValidatedLanguage(req);
+    
+    // Get detailed results with language preference
+    const detailedResults = await Exam.getDetailedResults(examId, language);
 
     if (!detailedResults) {
       return res.status(404).json({ error: 'Exam not found' });
