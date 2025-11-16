@@ -416,13 +416,16 @@ async function getExamHistory(req, res) {
       return res.status(400).json(createDateFilterError(dateFiltersResult.errors));
     }
 
-    // Parse limit parameter
-    const limit = req.query.limit ? parseInt(req.query.limit) : 50;
-    if (isNaN(limit) || limit <= 0 || limit > 200) {
-      return res.status(400).json({
-        error: 'Invalid limit parameter',
-        message: 'Limit must be between 1 and 200'
-      });
+    // Parse limit parameter (optional)
+    let limit = null;
+    if (req.query.limit !== undefined) {
+      limit = parseInt(req.query.limit);
+      if (isNaN(limit) || limit <= 0 || limit > 200) {
+        return res.status(400).json({
+          error: 'Invalid limit parameter',
+          message: 'Limit must be between 1 and 200'
+        });
+      }
     }
 
     // Get history with date filters

@@ -1746,9 +1746,11 @@ pm.test("Response has correct Content-Type", function () {
                 exec: [
                   this.globalTests,
                   "",
-                  "pm.test('History returned successfully', function () {",
+                  "pm.test('History returned successfully (all records without limit)', function () {",
                   "    const response = pm.response.json();",
                   "    pm.expect(response).to.be.an('array');",
+                  "    ",
+                  "    console.log('📊 Total records returned (no limit):', response.length);",
                   "    ",
                   "    if (response.length > 0) {",
                   "        pm.expect(response[0]).to.have.property('id');",

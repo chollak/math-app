@@ -265,7 +265,7 @@ GET /api/exams/history/{deviceId}?startDate={startDate}&endDate={endDate}&dateFi
 - `dateField` (string, query, optional) - Поле для фильтрации по дате (по умолчанию: "completed_at")
   - `started_at` - фильтрация по дате начала экзамена
   - `completed_at` - фильтрация по дате завершения экзамена
-- `limit` (number, query, optional) - Максимальное количество записей (по умолчанию: 50, максимум: 200)
+- `limit` (number, query, optional) - Максимальное количество записей (если не указан - возвращаются все записи, максимум: 200)
 
 **Response (200 OK):**
 ```json
@@ -300,6 +300,9 @@ GET /api/exams/history/{deviceId}?startDate={startDate}&endDate={endDate}&dateFi
 **Примеры запросов:**
 
 ```http
+# Получить ВСЕ экзамены (без ограничений)
+GET /api/exams/history/device123
+
 # Получить все экзамены за последний месяц
 GET /api/exams/history/device123?startDate=2024-11-01&endDate=2024-11-30
 

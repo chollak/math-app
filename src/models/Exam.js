@@ -76,11 +76,11 @@ class Exam {
   /**
    * Get exam history for a device with optional date filtering
    * @param {string} deviceId - Device identifier
-   * @param {number} limit - Maximum number of records to return
+   * @param {number|null} limit - Maximum number of records to return (null = no limit)
    * @param {Object} dateFilters - Optional date filters { startDate, endDate, dateField }
    * @returns {Promise<Array>} Array of exam records
    */
-  static getHistory(deviceId, limit = 50, dateFilters = {}) {
+  static getHistory(deviceId, limit = null, dateFilters = {}) {
     return new Promise((resolve, reject) => {
       // Build base SQL query
       let sql = `
@@ -112,10 +112,14 @@ class Exam {
         }
       }
 
-      // Add ordering and limit
+      // Add ordering and optional limit
       const orderField = (dateFilters && dateFilters.dateField) || 'completed_at';
-      sql += ` ORDER BY ${orderField} DESC LIMIT ?`;
-      params.push(limit);
+      sql += ` ORDER BY ${orderField} DESC`;
+      
+      if (limit !== null) {
+        sql += ' LIMIT ?';
+        params.push(limit);
+      }
 
       database.db.all(sql, params, (err, rows) => {
         if (err) {
