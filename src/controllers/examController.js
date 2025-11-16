@@ -420,10 +420,10 @@ async function getExamHistory(req, res) {
     let limit = null;
     if (req.query.limit !== undefined) {
       limit = parseInt(req.query.limit);
-      if (isNaN(limit) || limit <= 0 || limit > 200) {
+      if (isNaN(limit) || limit <= 0) {
         return res.status(400).json({
           error: 'Invalid limit parameter',
-          message: 'Limit must be between 1 and 200'
+          message: 'Limit must be a positive number'
         });
       }
     }

@@ -2046,19 +2046,60 @@ pm.test("Response has correct Content-Type", function () {
           ]
         },
         {
-          name: "Test Invalid Limit Parameter (Should Fail)",
+          name: "Test Large Limit Parameter (Should Work)",
           request: {
             method: "GET",
             header: [],
             url: {
-              raw: "{{base_url}}/api/exams/history/{{device_id}}?limit=300",
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?limit=1000",
               host: ["{{base_url}}"],
               path: ["api", "exams", "history", "{{device_id}}"],
               query: [
                 {
                   key: "limit",
-                  value: "300",
-                  description: "Limit exceeds maximum allowed (200)"
+                  value: "1000",
+                  description: "Large limit should work (no maximum limit enforced)"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Large limit accepted', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    pm.expect(response.length).to.be.at.most(1000);",
+                  "    console.log('📊 Records returned with limit=1000:', response.length);",
+                  "});",
+                  "",
+                  "pm.test('No maximum limit enforced', function () {",
+                  "    // Should not get a 400 error for large limits",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Test Invalid Limit Parameter (Should Fail)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?limit=0",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "limit",
+                  value: "0",
+                  description: "Zero limit should fail"
                 }
               ]
             }
@@ -2075,7 +2116,7 @@ pm.test("Response has correct Content-Type", function () {
                   "pm.test('Error specifies limit validation', function () {",
                   "    const response = pm.response.json();",
                   "    pm.expect(response.error).to.equal('Invalid limit parameter');",
-                  "    pm.expect(response.message).to.include('between 1 and 200');",
+                  "    pm.expect(response.message).to.include('positive number');",
                   "});"
                 ]
               }

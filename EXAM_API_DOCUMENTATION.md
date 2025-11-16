@@ -265,7 +265,7 @@ GET /api/exams/history/{deviceId}?startDate={startDate}&endDate={endDate}&dateFi
 - `dateField` (string, query, optional) - Поле для фильтрации по дате (по умолчанию: "completed_at")
   - `started_at` - фильтрация по дате начала экзамена
   - `completed_at` - фильтрация по дате завершения экзамена
-- `limit` (number, query, optional) - Максимальное количество записей (если не указан - возвращаются все записи, максимум: 200)
+- `limit` (number, query, optional) - Максимальное количество записей (если не указан - возвращаются все записи)
 
 **Response (200 OK):**
 ```json
@@ -311,6 +311,9 @@ GET /api/exams/history/device123?startDate=2024-11-15&dateField=started_at
 
 # Получить последние 20 экзаменов, завершенных до определенной даты
 GET /api/exams/history/device123?endDate=2024-11-15&limit=20
+
+# Получить последние 1000 экзаменов (любое количество)
+GET /api/exams/history/device123?limit=1000
 
 # Получить экзамены за конкретный день с временными метками
 GET /api/exams/history/device123?startDate=2024-11-15T00:00:00&endDate=2024-11-15T23:59:59
