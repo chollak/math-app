@@ -10,6 +10,7 @@ const {
 } = require('../utils/structuredScoringLogic');
 const { keysToCamel, keysToSnake } = require('../utils/caseConverter');
 const { getValidatedLanguage, createLanguageError } = require('../utils/languageHelper');
+const { parseDateFilters, createDateFilterError } = require('../utils/dateHelper');
 const { getExamStructure } = require('../config/examStructure');
 const { selectStructuredQuestions } = require('../utils/questionSelector');
 const { generateReadinessReport } = require('../utils/examValidator');
@@ -363,32 +364,27 @@ async function submitExam(req, res) {
     // Mark exam as completed
     await Exam.complete(examId, totalPoints, maxPossiblePoints);
 
-    // Get detailed results
-    const detailedResults = await Exam.getDetailedResults(examId);
+    // Get language from headers or query parameters
+    const language = getValidatedLanguage(req);
+    
+    // Get detailed results with language preference
+    const detailedResults = await Exam.getDetailedResults(examId, language);
 
-    // Format detailed results for response - use unified question format
+    // Format detailed results for response - questions already have unified format
     const formattedResults = {
       exam: detailedResults.exam,
-      questions: detailedResults.questions.map(q => {
-        // Use language-specific question text (consistent with other endpoints)
-        const questionLanguage = q.language || 'ru';
-        const questionText = questionLanguage === 'kz' ? 
-          (q.question_kz || q.question_ru) : 
-          (q.question_ru || q.question_kz);
-        
-        return {
-          question_id: q.question_id,
-          question_order: q.question_order,
-          question: questionText,
-          language: questionLanguage,
-          user_answer: q.user_answer,
-          correct_answer: q.correct_answer,
-          points_earned: q.points_earned,
-          max_points: q.max_points,
-          topic: q.topic,
-          level: q.level
-        };
-      })
+      questions: detailedResults.questions.map(q => ({
+        question_id: q.question_id,
+        question_order: q.question_order,
+        question: q.question,
+        language: q.language,
+        user_answer: q.user_answer,
+        correct_answer: q.correct_answer,
+        points_earned: q.points_earned,
+        max_points: q.max_points,
+        topic: q.topic,
+        level: q.level
+      }))
     };
 
     // Convert to camelCase
@@ -413,8 +409,27 @@ async function getExamHistory(req, res) {
       return res.status(400).json({ error: 'deviceId is required' });
     }
 
-    // Get history
-    const history = await Exam.getHistory(deviceId);
+    // Parse date filters from query parameters
+    const dateFiltersResult = parseDateFilters(req.query);
+    
+    if (!dateFiltersResult.valid) {
+      return res.status(400).json(createDateFilterError(dateFiltersResult.errors));
+    }
+
+    // Parse limit parameter (optional)
+    let limit = null;
+    if (req.query.limit !== undefined) {
+      limit = parseInt(req.query.limit);
+      if (isNaN(limit) || limit <= 0) {
+        return res.status(400).json({
+          error: 'Invalid limit parameter',
+          message: 'Limit must be a positive number'
+        });
+      }
+    }
+
+    // Get history with date filters
+    const history = await Exam.getHistory(deviceId, limit, dateFiltersResult.filters);
 
     // Convert to camelCase
     const response = keysToCamel(history);
@@ -438,8 +453,11 @@ async function getExamDetails(req, res) {
       return res.status(400).json({ error: 'Invalid examId' });
     }
 
-    // Get detailed results
-    const detailedResults = await Exam.getDetailedResults(examId);
+    // Get language from headers or query parameters
+    const language = getValidatedLanguage(req);
+    
+    // Get detailed results with language preference
+    const detailedResults = await Exam.getDetailedResults(examId, language);
 
     if (!detailedResults) {
       return res.status(404).json({ error: 'Exam not found' });

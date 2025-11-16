@@ -1,4 +1,5 @@
 const database = require('../config/database');
+const { buildDateSqlConditions } = require('../utils/dateHelper');
 
 class Exam {
   /**
@@ -73,14 +74,16 @@ class Exam {
   }
 
   /**
-   * Get exam history for a device
+   * Get exam history for a device with optional date filtering
    * @param {string} deviceId - Device identifier
-   * @param {number} limit - Maximum number of records to return
+   * @param {number|null} limit - Maximum number of records to return (null = no limit)
+   * @param {Object} dateFilters - Optional date filters { startDate, endDate, dateField }
    * @returns {Promise<Array>} Array of exam records
    */
-  static getHistory(deviceId, limit = 50) {
+  static getHistory(deviceId, limit = null, dateFilters = {}) {
     return new Promise((resolve, reject) => {
-      const sql = `
+      // Build base SQL query
+      let sql = `
         SELECT
           id,
           device_id,
@@ -94,11 +97,31 @@ class Exam {
           status
         FROM exams
         WHERE device_id = ? AND status = 'completed'
-        ORDER BY completed_at DESC
-        LIMIT ?
       `;
 
-      database.db.all(sql, [deviceId, limit], (err, rows) => {
+      // Start with base parameters
+      let params = [deviceId];
+
+      // Add date filtering if provided
+      if (dateFilters && (dateFilters.startDate || dateFilters.endDate)) {
+        const dateConditions = buildDateSqlConditions(dateFilters, params);
+        
+        if (dateConditions.conditions.length > 0) {
+          sql += ' AND ' + dateConditions.conditions.join(' AND ');
+          params = dateConditions.params;
+        }
+      }
+
+      // Add ordering and optional limit
+      const orderField = (dateFilters && dateFilters.dateField) || 'completed_at';
+      sql += ` ORDER BY ${orderField} DESC`;
+      
+      if (limit !== null) {
+        sql += ' LIMIT ?';
+        params.push(limit);
+      }
+
+      database.db.all(sql, params, (err, rows) => {
         if (err) {
           reject(err);
         } else {
@@ -111,9 +134,10 @@ class Exam {
   /**
    * Get detailed exam results including all questions and answers
    * @param {number} examId - Exam ID
+   * @param {string} language - Language preference ('ru' or 'kz')
    * @returns {Promise<object>} Detailed exam results
    */
-  static getDetailedResults(examId) {
+  static getDetailedResults(examId, language = 'ru') {
     return new Promise((resolve, reject) => {
       // First get exam info
       const examSql = `
@@ -156,6 +180,7 @@ class Exam {
             eq.answered_at,
             q.question_ru,
             q.question_kz,
+            q.language,
             q.topic,
             q.level
           FROM exam_questions eq
@@ -168,9 +193,34 @@ class Exam {
           if (err) {
             reject(err);
           } else {
+            // Transform questions to use language-specific question text
+            const transformedQuestions = questions.map(q => {
+              // Determine language for question display  
+              const questionLanguage = language || q.language || 'ru';
+              // Choose question text based on language with fallback
+              const questionText = questionLanguage === 'kz' ? 
+                (q.question_kz || q.question_ru) : // Fallback to Russian if Kazakh is missing
+                (q.question_ru || q.question_kz);   // Fallback to Kazakh if Russian is missing
+              
+              return {
+                id: q.id,
+                question_id: q.question_id,
+                question_order: q.question_order,
+                user_answer: q.user_answer,
+                correct_answer: q.correct_answer,
+                points_earned: q.points_earned,
+                max_points: q.max_points,
+                answered_at: q.answered_at,
+                question: questionText,
+                language: questionLanguage,
+                topic: q.topic,
+                level: q.level
+              };
+            });
+            
             resolve({
               exam,
-              questions: questions || []
+              questions: transformedQuestions
             });
           }
         });

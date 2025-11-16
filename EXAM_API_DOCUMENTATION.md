@@ -110,8 +110,7 @@ GET /api/exams/{examId}/questions
   {
     "order": 1,
     "questionId": 12,
-    "questionRu": "Сколько будет 2+2?",
-    "questionKz": "2+2 нешеу болады?",
+    "question": "Сколько будет 2+2?",
     "language": "ru",
     "topic": "Математика",
     "level": 1,
@@ -147,8 +146,7 @@ GET /api/exams/{examId}/questions
   {
     "order": 2,
     "questionId": 5,
-    "questionRu": "Какие числа четные?",
-    "questionKz": "Қандай сандар жұп?",
+    "question": "Какие числа четные?",
     "language": "ru",
     "topic": "Математика",
     "level": 2,
@@ -224,8 +222,8 @@ Content-Type: application/json
       "correctAnswer": "B",
       "pointsEarned": 1,
       "maxPoints": 1,
-      "questionRu": "Сколько будет 2+2?",
-      "questionKz": "2+2 нешеу болады?",
+      "question": "Сколько будет 2+2?",
+      "language": "ru",
       "topic": "Математика",
       "level": 1
     },
@@ -236,8 +234,8 @@ Content-Type: application/json
       "correctAnswer": "A,C",
       "pointsEarned": 2,
       "maxPoints": 2,
-      "questionRu": "Какие числа четные?",
-      "questionKz": "Қандай сандар жұп?",
+      "question": "Какие числа четные?",
+      "language": "ru",
       "topic": "Математика",
       "level": 2
     }
@@ -257,11 +255,17 @@ Content-Type: application/json
 ### 4. Получить историю экзаменов
 
 ```http
-GET /api/exams/history/{deviceId}
+GET /api/exams/history/{deviceId}?startDate={startDate}&endDate={endDate}&dateField={dateField}&limit={limit}
 ```
 
 **Parameters:**
 - `deviceId` (string, в URL) - ID устройства
+- `startDate` (string, query, optional) - Начальная дата фильтра (формат: YYYY-MM-DD или YYYY-MM-DDTHH:MM:SS)
+- `endDate` (string, query, optional) - Конечная дата фильтра (формат: YYYY-MM-DD или YYYY-MM-DDTHH:MM:SS)
+- `dateField` (string, query, optional) - Поле для фильтрации по дате (по умолчанию: "completed_at")
+  - `started_at` - фильтрация по дате начала экзамена
+  - `completed_at` - фильтрация по дате завершения экзамена
+- `limit` (number, query, optional) - Максимальное количество записей (если не указан - возвращаются все записи)
 
 **Response (200 OK):**
 ```json
@@ -293,9 +297,55 @@ GET /api/exams/history/{deviceId}
 ]
 ```
 
+**Примеры запросов:**
+
+```http
+# Получить ВСЕ экзамены (без ограничений)
+GET /api/exams/history/device123
+
+# Получить все экзамены за последний месяц
+GET /api/exams/history/device123?startDate=2024-11-01&endDate=2024-11-30
+
+# Получить экзамены, начатые в определенный день
+GET /api/exams/history/device123?startDate=2024-11-15&dateField=started_at
+
+# Получить последние 20 экзаменов, завершенных до определенной даты
+GET /api/exams/history/device123?endDate=2024-11-15&limit=20
+
+# Получить последние 1000 экзаменов (любое количество)
+GET /api/exams/history/device123?limit=1000
+
+# Получить экзамены за конкретный день с временными метками
+GET /api/exams/history/device123?startDate=2024-11-15T00:00:00&endDate=2024-11-15T23:59:59
+```
+
 **Errors:**
-- `400` - deviceId отсутствует
+- `400` - deviceId отсутствует или некорректные параметры дат
 - `500` - Ошибка сервера
+
+**Пример ошибки валидации дат:**
+```json
+{
+  "error": "Invalid date filter parameters",
+  "details": [
+    {
+      "field": "startDate",
+      "message": "Invalid startDate format \"2024-13-01\". Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS format"
+    }
+  ],
+  "supportedFormats": [
+    "YYYY-MM-DD (e.g., 2024-01-15)",
+    "YYYY-MM-DDTHH:MM:SS (e.g., 2024-01-15T14:30:00)",
+    "YYYY-MM-DD HH:MM:SS (e.g., 2024-01-15 14:30:00)"
+  ],
+  "supportedDateFields": ["started_at", "completed_at"],
+  "examples": [
+    "startDate=2024-01-01&endDate=2024-01-31",
+    "startDate=2024-01-01&dateField=started_at",
+    "endDate=2024-01-15&dateField=completed_at"
+  ]
+}
+```
 
 ---
 
@@ -438,8 +488,7 @@ struct ExamResponse: Codable {
 struct ExamQuestion: Codable {
     let order: Int
     let questionId: Int
-    let questionRu: String
-    let questionKz: String
+    let question: String
     let language: String
     let topic: String
     let level: Int
@@ -508,8 +557,8 @@ struct QuestionResult: Codable {
     let correctAnswer: String
     let pointsEarned: Double
     let maxPoints: Double
-    let questionRu: String
-    let questionKz: String
+    let question: String
+    let language: String
     let topic: String
     let level: Int
 }

@@ -8,7 +8,7 @@ class PostmanCollectionGenerator {
     this.collection = {
       info: {
         name: "Math App API",
-        description: "Complete API collection for Math App with automatic tests",
+        description: "Complete API collection for Math App with automatic tests, language filtering, and date-based exam history filtering",
         schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
       },
       variable: [
@@ -1729,7 +1729,7 @@ pm.test("Response has correct Content-Type", function () {
           ]
         },
         {
-          name: "Get Exam History",
+          name: "Get Exam History (All)",
           request: {
             method: "GET",
             header: [],
@@ -1743,7 +1743,382 @@ pm.test("Response has correct Content-Type", function () {
             {
               listen: "test",
               script: {
-                exec: [this.globalTests]
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('History returned successfully (all records without limit)', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    ",
+                  "    console.log('📊 Total records returned (no limit):', response.length);",
+                  "    ",
+                  "    if (response.length > 0) {",
+                  "        pm.expect(response[0]).to.have.property('id');",
+                  "        pm.expect(response[0]).to.have.property('deviceId');",
+                  "        pm.expect(response[0]).to.have.property('startedAt');",
+                  "        pm.expect(response[0]).to.have.property('completedAt');",
+                  "        pm.expect(response[0]).to.have.property('totalQuestions');",
+                  "        pm.expect(response[0]).to.have.property('totalPoints');",
+                  "        pm.expect(response[0]).to.have.property('maxPossiblePoints');",
+                  "        pm.expect(response[0]).to.have.property('scorePercentage');",
+                  "        pm.expect(response[0]).to.have.property('status');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Exam History (Date Range Filter)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?startDate=2024-01-01&endDate=2024-12-31",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "startDate",
+                  value: "2024-01-01",
+                  description: "Start date filter (YYYY-MM-DD format)"
+                },
+                {
+                  key: "endDate", 
+                  value: "2024-12-31",
+                  description: "End date filter (YYYY-MM-DD format)"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Date range filter works correctly', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    ",
+                  "    if (response.length > 0) {",
+                  "        response.forEach((exam, index) => {",
+                  "            pm.expect(exam.completedAt, `Exam ${index + 1} completion date should be within range`).to.match(/^2024/);",
+                  "        });",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('Request query parameters are correct', function () {",
+                  "    pm.expect(pm.request.url.query.get('startDate')).to.equal('2024-01-01');",
+                  "    pm.expect(pm.request.url.query.get('endDate')).to.equal('2024-12-31');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Exam History (Started Date Filter)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?startDate=2024-11-01&dateField=started_at",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "startDate",
+                  value: "2024-11-01",
+                  description: "Filter exams started from this date"
+                },
+                {
+                  key: "dateField",
+                  value: "started_at",
+                  description: "Use started_at field for date filtering"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Started date filter works', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    ",
+                  "    if (response.length > 0) {",
+                  "        response.forEach((exam, index) => {",
+                  "            const startDate = new Date(exam.startedAt);",
+                  "            const filterDate = new Date('2024-11-01');",
+                  "            pm.expect(startDate.getTime(), `Exam ${index + 1} start date should be after filter date`).to.be.at.least(filterDate.getTime());",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Exam History (Limit Test)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?limit=5",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "limit",
+                  value: "5",
+                  description: "Limit results to 5 exams"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Limit parameter respected', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    pm.expect(response.length).to.be.at.most(5);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Get Exam History (ISO DateTime Filter)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?startDate=2024-01-15T00:00:00&endDate=2024-01-15T23:59:59",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "startDate",
+                  value: "2024-01-15T00:00:00",
+                  description: "Start of specific day (ISO format)"
+                },
+                {
+                  key: "endDate",
+                  value: "2024-01-15T23:59:59",
+                  description: "End of specific day (ISO format)"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('ISO datetime format accepted', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    ",
+                  "    // Should return exams from specific day only",
+                  "    if (response.length > 0) {",
+                  "        response.forEach((exam, index) => {",
+                  "            pm.expect(exam.completedAt, `Exam ${index + 1} should be from Jan 15, 2024`).to.include('2024-01-15');",
+                  "        });",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Test Invalid Date Filter (Should Fail)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?startDate=invalid-date&endDate=2024-13-45",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "startDate",
+                  value: "invalid-date",
+                  description: "Invalid date format"
+                },
+                {
+                  key: "endDate",
+                  value: "2024-13-45",
+                  description: "Invalid date (month 13, day 45)"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Invalid date format returns 400 error', function () {",
+                  "    pm.expect(pm.response.code).to.equal(400);",
+                  "});",
+                  "",
+                  "pm.test('Error response contains validation details', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('error');",
+                  "    pm.expect(response.error).to.equal('Invalid date filter parameters');",
+                  "    pm.expect(response).to.have.property('details');",
+                  "    pm.expect(response.details).to.be.an('array');",
+                  "    pm.expect(response).to.have.property('supportedFormats');",
+                  "    pm.expect(response).to.have.property('examples');",
+                  "});",
+                  "",
+                  "pm.test('Multiple validation errors reported', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.details.length).to.be.at.least(2);",
+                  "    ",
+                  "    const fields = response.details.map(error => error.field);",
+                  "    pm.expect(fields).to.include('startDate');",
+                  "    pm.expect(fields).to.include('endDate');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Test Invalid Date Field (Should Fail)", 
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?dateField=invalid_field&startDate=2024-01-01",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "dateField",
+                  value: "invalid_field",
+                  description: "Invalid date field name"
+                },
+                {
+                  key: "startDate",
+                  value: "2024-01-01",
+                  description: "Valid start date"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Invalid dateField returns 400 error', function () {",
+                  "    pm.expect(pm.response.code).to.equal(400);",
+                  "});",
+                  "",
+                  "pm.test('Error specifies invalid dateField', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.details[0].field).to.equal('dateField');",
+                  "    pm.expect(response.supportedDateFields).to.include('started_at');",
+                  "    pm.expect(response.supportedDateFields).to.include('completed_at');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Test Large Limit Parameter (Should Work)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?limit=1000",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "limit",
+                  value: "1000",
+                  description: "Large limit should work (no maximum limit enforced)"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  this.globalTests,
+                  "",
+                  "pm.test('Large limit accepted', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.be.an('array');",
+                  "    pm.expect(response.length).to.be.at.most(1000);",
+                  "    console.log('📊 Records returned with limit=1000:', response.length);",
+                  "});",
+                  "",
+                  "pm.test('No maximum limit enforced', function () {",
+                  "    // Should not get a 400 error for large limits",
+                  "    pm.expect(pm.response.code).to.equal(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          name: "Test Invalid Limit Parameter (Should Fail)",
+          request: {
+            method: "GET",
+            header: [],
+            url: {
+              raw: "{{base_url}}/api/exams/history/{{device_id}}?limit=0",
+              host: ["{{base_url}}"],
+              path: ["api", "exams", "history", "{{device_id}}"],
+              query: [
+                {
+                  key: "limit",
+                  value: "0",
+                  description: "Zero limit should fail"
+                }
+              ]
+            }
+          },
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Invalid limit returns 400 error', function () {",
+                  "    pm.expect(pm.response.code).to.equal(400);",
+                  "});",
+                  "",
+                  "pm.test('Error specifies limit validation', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.error).to.equal('Invalid limit parameter');",
+                  "    pm.expect(response.message).to.include('positive number');",
+                  "});"
+                ]
               }
             }
           ]
