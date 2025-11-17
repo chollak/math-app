@@ -42,11 +42,18 @@ class Question {
     });
   }
 
-  static findAll(language = null, callback) {
+  static findAll(language = null, callback, options = {}) {
     // Handle case where language is actually the callback (backward compatibility)
     if (typeof language === 'function') {
       callback = language;
       language = null;
+      options = {};
+    }
+    
+    // Handle case where callback is actually options
+    if (typeof callback === 'object') {
+      options = callback;
+      callback = arguments[2] || (() => {});
     }
 
     let sql = `
@@ -81,8 +88,16 @@ class Question {
     
     sql += `
       GROUP BY q.id
-      ORDER BY q.created_at DESC
     `;
+    
+    // Добавляем сортировку в зависимости от опций
+    if (options.randomOrder === true) {
+      // Для SQLite используем RANDOM() для случайной сортировки
+      sql += ` ORDER BY RANDOM()`;
+    } else {
+      // По умолчанию сортируем по дате создания (для обратной совместимости)
+      sql += ` ORDER BY q.created_at DESC`;
+    }
 
     database.db.all(sql, params, (err, rows) => {
       if (err) {
