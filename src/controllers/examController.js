@@ -469,8 +469,46 @@ async function getExamDetails(req, res) {
       return res.status(404).json({ error: 'Exam not found' });
     }
 
-    // Convert to camelCase
-    const response = keysToCamel(detailedResults);
+    // Get question details with options for each question
+    const questionsWithOptions = await Promise.all(
+      detailedResults.questions.map(async (q) => {
+        // Get full question data including options using unified Question.findById method
+        const questionData = await new Promise((resolve, reject) => {
+          Question.findById(q.question_id, language, (err, question) => {
+            if (err) reject(err);
+            else resolve(question);
+          });
+        });
+
+        // Merge exam question data with full question details
+        return {
+          question_id: q.question_id,
+          question_order: q.question_order,
+          question: q.question,
+          language: q.language,
+          user_answer: q.user_answer,
+          correct_answer: q.correct_answer,
+          points_earned: q.points_earned,
+          max_points: q.max_points,
+          topic: q.topic,
+          level: q.level,
+          answered_at: q.answered_at,
+          // Add options and context from full question data
+          options: questionData ? questionData.options : [],
+          photos: questionData ? questionData.photos : [],
+          context_id: questionData ? questionData.context_id : null,
+          context_text: questionData ? questionData.context_text : null,
+          context_title: questionData ? questionData.context_title : null,
+          context_photos: questionData ? questionData.context_photos : null
+        };
+      })
+    );
+
+    // Format the response with enhanced question data
+    const response = keysToCamel({
+      exam: detailedResults.exam,
+      questions: questionsWithOptions
+    });
 
     res.json(response);
   } catch (error) {
