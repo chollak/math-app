@@ -247,6 +247,16 @@
         excelBlock.textContent = `${lang}\t${correctAnswer || "-"}\t${level}\t${content}`;
         resultContainer.appendChild(excelBlock);
       }
+
+      if (!found) {
+    const header = document.createElement("h3");
+    header.textContent = "Результат";
+    resultContainer.appendChild(header);
+
+    const pre = document.createElement("pre");
+    pre.textContent = lastExtractedText;
+    resultContainer.appendChild(pre);
+  }
     }
 
     /* остальной код — БЕЗ ИЗМЕНЕНИЙ */
