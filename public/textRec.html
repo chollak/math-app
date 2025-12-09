@@ -236,53 +236,7 @@
     function renderResult(correctAnswer) {
       if (!lastExtractedText) return;
 
-      const level = document.getElementById("levelSelect").value;
-      let resultHtml = "";
-      let allExcelLines = [];
-
-      const regex = /\[(Оригинал|Перевод):\s*(Русский|Қазақша)\]([\s\S]*?)(?=\[(?:Оригинал|Перевод):|$)/g;
-      let match;
-
-      while ((match = regex.exec(lastExtractedText)) !== null) {
-        const type = match[1];
-        const blockLang = match[2];
-        const content = match[3].trim();
-
-        const lines = content.split("\n").filter(line => line.trim() !== "");
-        const question = lines[0] || "";
-        const answers = lines.slice(1).map(line => line.replace(/^[A-Ja-j]\)\s*/, ""));
-
-        function sanitize(str) {
-          return str
-        }
-
-        const excelLine = [
-          blockLang,
-          correctAnswer || "-",
-          level,
-          sanitize(question),
-          ...answers.map(a => sanitize(a))
-        ].join("\t");
-
-        allExcelLines.push(excelLine);
-
-        resultHtml += `
-          <h3>📖 ${type}: ${blockLang}</h3>
-          <pre>${content}</pre>
-          <h4>📊 Excel-строка (${type}: ${blockLang})</h4>
-          <div class="excel-line">${excelLine}</div>
-          <button onclick="copyExcel(this, \`${excelLine}\`)">📋 Скопировать Excel (${type}: ${blockLang})</button>
-          <div class="copy-status">✔ Скопировано</div>
-        `;
-      }
-
-      const allLines = allExcelLines.join("\n");
-      resultHtml =
-        `<button onclick="copyAllExcel(\`${allLines}\`)">📋 Скопировать всё (${allExcelLines.length} строк)</button>
-         <div id="allCopyStatus" class="copy-status">✔ Все строки скопированы</div>`
-        + resultHtml;
-
-      document.getElementById("result").innerHTML = resultHtml;
+      document.getElementById("result").textContent = lastExtractedText;
     }
 
     // --- отправка ---
@@ -296,7 +250,7 @@
       const model = document.getElementById("modelSelect").value;
 
       preprocessImage(file, async (base64) => {
-            let prompt = userLang === "ru"
+                   let prompt = userLang === "ru"
       ? `Исходный текст на русском языке.
 1. Извлеки вопрос и варианты ответов в текст.
 2. В вопросе и вариантах нужно удалить ведущие маркеры вроде:
@@ -306,10 +260,10 @@
 Формат:
 
 [Оригинал: Русский]
-<вопрос + варианты>
+<вопрос>\\n<вариант 1>\\n<вариант 2>\\n<вариант 3>...
 
 [Перевод: Қазақша]
-<сұрақ + нұсқалар>`
+<сұрақ>\\n<нұсқа 1>\\n<нұсқа 2>\\n<нұсқа 3>...`
       : `Исходный текст на казахском языке.
 1. Извлеки сұрақ және нұсқалар в текст.
 2. Удали ведущие маркеры вроде:
@@ -317,12 +271,11 @@
 і. Переведи этот же вопрос и варианты на русский язык.
 
 Формат:
-
 [Оригинал: Қазақша]
-<сұрақ + нұсқалар>
+<сұрақ>\\n<нұсқа 1>\\n<нұсқа 2>\\n<нұсқа 3>...
 
 [Перевод: Русский]
-<вопрос + варианты>`;
+<вопрос>\\n<вариант 1>\\n<вариант 2>\\n<вариант 3>...`;
         
         document.getElementById("result").innerHTML = "⏳ Обработка...";
 
