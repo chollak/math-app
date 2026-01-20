@@ -320,7 +320,7 @@
           data.choices?.[0]?.message?.content?.[0]?.text ||
           "⚠ Ошибка: пустой ответ от модели";
 
-        lastExtractedText = text;
+       lastExtractedText = text.replace(/\\n/g, "\n");
         renderResult(correctAnswer);
       });
     }
